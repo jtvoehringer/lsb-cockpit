@@ -315,6 +315,9 @@ async function toMono16k(blob) {
   } finally { ctx.close(); }
 }
 
+// Bekannte Whisper-Floskeln aus Untertitel-Trainingsdaten, die ohne echte Sprache entstehen
+const HALLUZINATION = /untertitel (im auftrag|der amara|von stephanie)|amara\.org|vielen dank für('?s)? zuschauen|bis zum nächsten mal|copyright|swr 20\d\d|zdf für funk/i;
+
 const rec = { active: false, feld: null, recorder: null, chunks: [], stream: null };
 
 async function startRec(feld) {
@@ -351,7 +354,11 @@ async function transcribeInto(feld, blob) {
   state.textContent = "Wird in Text umgewandelt … (auf diesem Gerät)";
   try {
     const audio = await toMono16k(blob); // Tonaufnahme bleibt nur im Arbeitsspeicher und wird nicht gespeichert
+    // Whisper erfindet bei Stille Text („Untertitel im Auftrag des ZDF …“) – leise Aufnahmen gar nicht erst umwandeln
+    let sum = 0; for (let i = 0; i < audio.length; i++) sum += audio[i] * audio[i];
+    if (audio.length < 16000 * 0.5 || Math.sqrt(sum / audio.length) < 0.004) { state.textContent = "Zu leise oder zu kurz – bitte näher ans Mikrofon und noch einmal."; return; }
     const r = await transcribe(audio);
+    r.text = r.text.split(/(?<=[.!?])\s+/).filter((s) => !HALLUZINATION.test(s)).join(" ").trim();
     const ta = $("#t-" + feld);
     if (ta && r.text) {
       ta.value = ta.value.trim() ? ta.value.trimEnd() + "\n" + r.text : r.text;
