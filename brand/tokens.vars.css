@@ -1,0 +1,141 @@
+/* Generiert aus brand.config.ts – nicht von Hand bearbeiten. node generate-tokens.mjs */
+/* Mivora – reine CSS-Variablen (ohne Tailwind). Schriften per @font-face aus fonts/fonts.css */
+:root {
+  /* Palette */
+  --color-forest: #2F3E33;
+  --color-moss: #5B6F5E;
+  --color-sage: #8FA38F;
+  --color-terracotta: #C4805E;
+  --color-linen: #F4F1EA;
+  --color-white: #FFFFFF;
+  --color-ink: #2B2A27;
+  --color-stone: #57534C;
+  --color-pebble: #7A756C;
+  --color-line: #EAE6DE;
+  --color-sand: #E3DED2;
+  --color-terracotta-deep: #9D5C3B;
+  --color-terracotta-dark: #8A4B2A;
+  --color-pebble-deep: #716C63;
+  --color-sage-light: #97AB97;
+  --color-forest-deep: #1F2A22;
+  --color-taupe: #8A857C;
+  /* Semantik */
+  --color-background: #F4F1EA;
+  --color-surface: #FFFFFF;
+  --color-surface-inverse: #2F3E33;
+  --color-text: #2B2A27;
+  --color-text-muted: #57534C;
+  --color-text-subtle: #716C63;
+  --color-text-inverse: #F4F1EA;
+  --color-text-inverse-muted: #97AB97;
+  --color-text-on-sage: #1F2A22;
+  --color-text-on-accent: #1F2A22;
+  --color-placeholder: #716C63;
+  --color-heading: #2F3E33;
+  --color-primary: #2F3E33;
+  --color-primary-contrast: #F4F1EA;
+  --color-accent: #C4805E;
+  --color-accent-contrast: #FFFFFF;
+  --color-accent-strong: #9D5C3B;
+  --color-accent-strong-hover: #8A4B2A;
+  --color-accent-strong-contrast: #FFFFFF;
+  --color-link: #5B6F5E;
+  --color-link-hover: #2F3E33;
+  --color-border: #EAE6DE;
+  --color-border-input: #8A857C;
+  --color-focus: #9D5C3B;
+  --color-focus-inverse: #C4805E;
+  --color-focus-on-color: #2F3E33;
+  /* Typografie */
+  --text-display: 56px;
+  --text-display--line-height: 1.05;
+  --text-display--font-weight: 300;
+  --text-display--letter-spacing: -0.01em;
+  --text-h1: 40px;
+  --text-h1--line-height: 1.05;
+  --text-h1--font-weight: 300;
+  --text-h2: 30px;
+  --text-h2--line-height: 1.1;
+  --text-h2--font-weight: 400;
+  --text-h3: 20px;
+  --text-h3--line-height: 1.2;
+  --text-h3--font-weight: 400;
+  --text-quote: 28px;
+  --text-quote--line-height: 1.15;
+  --text-quote--font-weight: 400;
+  --text-body-lg: 17px;
+  --text-body-lg--line-height: 1.55;
+  --text-body-lg--font-weight: 400;
+  --text-body: 15px;
+  --text-body--line-height: 1.55;
+  --text-body--font-weight: 400;
+  --text-small: 13px;
+  --text-small--line-height: 1.5;
+  --text-small--font-weight: 400;
+  --text-overline: 11px;
+  --text-overline--line-height: 1.4;
+  --text-overline--font-weight: 500;
+  --text-overline--letter-spacing: 0.2em;
+  /* Radien (überschreiben Tailwind sm/md/lg; rounded-xl/2xl nicht verwenden; arch nur als rounded-arch), Schatten */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 14px;
+  --radius-pill: 999px;
+  --radius-arch: 120px 120px 8px 8px;
+  --shadow-paper: 0 1px 3px rgba(0,0,0,0.08);
+  /* Schriften */
+  --font-heading: 'Newsreader', Georgia, serif;
+  --font-body: 'Instrument Sans', system-ui, sans-serif;
+  /* Abstände */
+  --space-0: 0px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 40px;
+  --space-8: 56px;
+  --space-9: 64px;
+  --space-10: 96px;
+}
+
+/* Flächen und Basisregeln wie in tokens.css */
+@layer brand-base {
+  html { background: var(--color-background); color: var(--color-text); font-family: var(--font-body); }
+  /* Flächen – die innerste umgebende Fläche gewinnt. Tailwind-Klassen mit Modifikator (bg-forest/90, md:bg-forest)
+     werden nicht erkannt: dafür data-surface="<name>" setzen (hell, sand, dunkel, tief, salbei, terrakotta). */
+  :root, .bg-background, .bg-surface, .bg-linen, .bg-white, [data-surface="hell"] {
+    --surface-text: var(--color-text); --surface-heading: var(--color-heading);
+    --surface-link: var(--color-link); --surface-link-hover: var(--color-link-hover); --surface-focus: var(--color-focus);
+  }
+  .bg-sand, [data-surface="sand"] {
+    --surface-text: var(--color-text); --surface-heading: var(--color-heading);
+    --surface-link: var(--color-link-hover); --surface-link-hover: var(--color-forest-deep); --surface-focus: var(--color-focus);
+  }
+  .bg-surface-inverse, .bg-primary, .bg-forest, [data-surface="dunkel"] {
+    --surface-text: var(--color-text-inverse); --surface-heading: var(--color-text-inverse);
+    --surface-link: var(--color-text-inverse); --surface-link-hover: var(--color-text-inverse-muted); --surface-focus: var(--color-focus-inverse);
+  }
+  .bg-forest-deep, [data-surface="tief"] {
+    --surface-text: var(--color-text-inverse); --surface-heading: var(--color-text-inverse);
+    --surface-link: var(--color-text-inverse); --surface-link-hover: var(--color-text-inverse-muted); --surface-focus: var(--color-linen);
+  }
+  .bg-sage, [data-surface="salbei"] {
+    --surface-text: var(--color-text-on-sage); --surface-heading: var(--color-text-on-sage);
+    --surface-link: var(--color-text-on-sage); --surface-link-hover: var(--color-text-on-sage); --surface-focus: var(--color-focus-on-color);
+  }
+  .bg-accent, .bg-terracotta, [data-surface="terrakotta"] {
+    --surface-text: var(--color-text-on-accent); --surface-heading: var(--color-text-on-accent);
+    --surface-link: var(--color-text-on-accent); --surface-link-hover: var(--color-text-on-accent); --surface-focus: var(--color-focus-on-color);
+  }
+  :where(.bg-background, .bg-surface, .bg-linen, .bg-white, [data-surface="hell"], .bg-sand, [data-surface="sand"], .bg-surface-inverse, .bg-primary, .bg-forest, [data-surface="dunkel"], .bg-forest-deep, [data-surface="tief"], .bg-sage, [data-surface="salbei"], .bg-accent, .bg-terracotta, [data-surface="terrakotta"]) { color: var(--surface-text); }
+  /* Ein fokussiertes Element mit eigener Flächenfarbe übernimmt die Fokusfarbe der Fläche, auf der es liegt */
+  :where(.bg-background, .bg-surface, .bg-linen, .bg-white, [data-surface="hell"], .bg-sand, [data-surface="sand"], .bg-surface-inverse, .bg-primary, .bg-forest, [data-surface="dunkel"], .bg-forest-deep, [data-surface="tief"], .bg-sage, [data-surface="salbei"], .bg-accent, .bg-terracotta, [data-surface="terrakotta"]):focus-visible { --surface-focus: inherit; }
+  h1, h2, h3 { font-family: var(--font-heading); color: var(--surface-heading); font-optical-sizing: auto; }
+  /* Links im Fließtext immer unterstrichen (SC 1.4.1); Hover zusätzlich mit kräftigerer Linie */
+  :where(p, li, td, dd) a { color: var(--surface-link); text-decoration: underline; text-underline-offset: 0.15em; }
+  :where(p, li, td, dd) a:hover { color: var(--surface-link-hover); text-decoration-thickness: 0.12em; }
+  :focus-visible { outline: 2px solid var(--surface-focus); outline-offset: 2px; }
+  ::placeholder { color: var(--color-placeholder); opacity: 1; }
+}
