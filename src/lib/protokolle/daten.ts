@@ -65,6 +65,14 @@ export async function ladeRegister(kC: CryptoKey): Promise<(RegisterInhalt & { i
   return out
 }
 
+export async function aktualisiereRegister(kC: CryptoKey, id: string, inhalt: RegisterInhalt) {
+  const { error } = await sb().from('register_eintrag').update({
+    inhalt_enc: await verschluessele(kC, JSON.stringify(inhalt), aad('register_eintrag', id, 'inhalt')),
+    geaendert_am: new Date().toISOString(),
+  }).eq('id', id)
+  if (error) throw error
+}
+
 // ---------- Sitzungen und Protokolle ----------
 
 export async function ladeSitzungen(): Promise<Sitzung[]> {

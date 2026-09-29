@@ -17,7 +17,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   const nav = [
     { href: '/', text: 'Übersicht' }, { href: '/protokolle', text: 'Protokolle' }, { href: '/nachweis', text: 'Nachweis' },
-    { href: '/uebernahme', text: 'Übernahme' }, { href: '/schutz', text: 'Schutz & Audit' },
+    { href: '/register', text: 'Register' }, { href: '/schutz', text: 'Schutz & Audit' },
   ]
   return (
     <div className="min-h-screen">

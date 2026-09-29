@@ -9,6 +9,9 @@ type AuditZeile = { zeitpunkt: string; ereignis: string; objekt: string | null; 
 const EREIGNIS: Record<string, string> = {
   einrichtung: 'Konto eingerichtet', anmeldung: 'Anmeldung', abmeldung: 'Abmeldung', entsperrt: 'Entsperrt',
   gesperrt: 'Gesperrt', entsperren: 'Entsperren', abmeldung_ueberall: 'Auf allen Geräten abgemeldet',
+  akte_angelegt: 'Akte angelegt', protokoll_abgeschlossen: 'Protokoll abgeschlossen', protokoll_korrigiert: 'Protokoll korrigiert',
+  register_geoeffnet: 'Register geöffnet', register_geaendert: 'Register geändert', register_gesperrt: 'Register gesperrt',
+  uebernahme_prototyp: 'Übernahme aus Prototyp',
 }
 
 export default function Schutz() {

@@ -21,7 +21,7 @@ export default function Uebersicht() {
       </div>
       <div className="karte space-y-3">
         <p><b>Der Tresor ist offen.</b> Die Schlüssel liegen nur im Arbeitsspeicher dieses Browser-Tabs. Nach {SPERRE_NACH_MIN} Minuten ohne Eingabe, beim Sperren oder Schließen des Tabs sind sie wieder weg.</p>
-        <p className="text-text-muted">Protokolle diktieren und abschließen unter „Protokolle“, Auswertung für den Befähigungsnachweis unter „Nachweis“. Protokolle aus dem Diktat-Prototyp holst du einmalig unter „Übernahme“.</p>
+        <p className="text-text-muted">Protokolle diktieren und abschließen unter „Protokolle“, Auswertung für den Befähigungsnachweis unter „Nachweis“. Namen zu den Chiffren stehen im Register – es öffnet sich nur nach erneuter Passphrase-Eingabe.</p>
         <button className="btn btn-ghost" onClick={selbsttest}>Selbsttest Verschlüsselung</button>
         {probe && <p className="text-sm">{probe}</p>}
       </div>

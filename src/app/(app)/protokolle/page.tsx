@@ -19,6 +19,8 @@ export default function Protokolle() {
   const [fehler, setFehler] = useState('')
 
   useEffect(() => {
+    const c = new URLSearchParams(location.search).get('chiffre')
+    if (c) setFilter((f) => ({ ...f, chiffre: c }))
     Promise.all([ladeAkten(), ladeSitzungen()]).then(([a, s]) => { setAkten(a); setSitzungen(s) }).catch((e) => setFehler(e.message))
   }, [])
 
@@ -93,7 +95,7 @@ export default function Protokolle() {
             })}
           </tbody>
         </table>
-        {sitzungen && zeilen.length === 0 && <p className="p-6 text-text-muted">Noch keine Protokolle. Oben ein Erstgespräch anlegen – oder unter „Übernahme“ die Protokolle aus dem Diktat-Prototyp holen.</p>}
+        {sitzungen && zeilen.length === 0 && <p className="p-6 text-text-muted">{sitzungen.length ? 'Keine Treffer.' : 'Noch keine Protokolle. Oben ein Erstgespräch anlegen – oder im Register eine Klientin anlegen und dort das Erstgespräch beginnen.'}</p>}
         {!sitzungen && !fehler && <p className="p-6 text-text-muted">Wird geladen …</p>}
       </div>
     </div>
