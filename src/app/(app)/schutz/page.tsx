@@ -54,7 +54,7 @@ export default function Schutz() {
       <div className="karte grid gap-2 text-sm sm:grid-cols-[180px_1fr]">
         <b>Version</b><span className="tabular-nums">Commit {process.env.NEXT_PUBLIC_COMMIT} · ausgeliefert {zeit(process.env.NEXT_PUBLIC_BUILD_ZEIT!)}</span>
         <b>Verschlüsselung</b><span>AES-256-GCM im Browser; Schlüssel aus der Passphrase (PBKDF2, 600.000 Iterationen). Server sehen nur Chiffretext.</span>
-        <b>Anmeldung</b><span>Passphrase und Authenticator-App (zwei Faktoren); Datenzugriff nur mit beiden. Entsperren auch per Passkey des Geräts.</span>
+        <b>Anmeldung</b><span>Code per E-Mail und Code aus der Authenticator-App; Datenzugriff nur mit beiden. Lesbar werden die Daten erst mit dem Schlüssel des Geräts (Windows Hello / Face ID) oder der Passphrase.</span>
       </div>
 
       <div className="karte space-y-3">

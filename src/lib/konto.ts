@@ -25,6 +25,21 @@ export async function anmeldenMitPassphrase(email: string, passphrase: string) {
   return anmelden(email, await anmeldeGeheimnis(passphrase, email))
 }
 
+/** Anmeldung per E-Mail-Code, Schritt 1: Code anfordern (nur für bestehende Konten; Versand über Brevo-SMTP). */
+export async function emailCodeAnfordern(email: string) {
+  const { error } = await sb().auth.signInWithOtp({ email: email.trim().toLowerCase(), options: { shouldCreateUser: false } })
+  // Keine Auskunft, ob ein Konto existiert – nur Wartezeit/Versandfehler melden
+  if (error && /rate|seconds|security purposes/i.test(error.message)) throw new AnmeldungFehlgeschlagen('Bitte kurz warten und dann einen neuen Code anfordern.')
+  if (error && error.status !== 400 && error.status !== 422) throw new AnmeldungFehlgeschlagen('Der Code konnte nicht verschickt werden. Bitte später nochmals versuchen.')
+}
+
+/** Schritt 2: Code aus der E-Mail prüfen. Gibt die ID des TOTP-Faktors zurück (null = Konto noch nicht eingerichtet). */
+export async function emailCodeBestaetigen(email: string, code: string): Promise<{ faktorId: string | null }> {
+  const { error } = await sb().auth.verifyOtp({ email: email.trim().toLowerCase(), token: code.replace(/\s/g, ''), type: 'email' })
+  if (error) throw new AnmeldungFehlgeschlagen('Der Code stimmt nicht oder ist abgelaufen.')
+  return { faktorId: await verifizierterTotpFaktor() }
+}
+
 export async function verifizierterTotpFaktor(): Promise<string | null> {
   const { data, error } = await sb().auth.mfa.listFactors()
   if (error) throw error
