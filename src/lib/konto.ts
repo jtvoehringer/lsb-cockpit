@@ -40,6 +40,43 @@ export async function sicherheitsstufe(): Promise<{ angemeldet: boolean; aal2: b
   return { angemeldet: true, aal2: data?.currentLevel === 'aal2' }
 }
 
+/** Rolle des angemeldeten Kontos (erst mit AAL2 lesbar) */
+export async function rolle(): Promise<'beraterin' | 'support' | null> {
+  const { data } = await sb().from('benutzer').select('rolle').maybeSingle()
+  return (data?.rolle as 'beraterin' | 'support' | undefined) ?? null
+}
+
+/** Support-Konto (ICP) einrichten: nur Anmelde-Geheimnis setzen – es gibt keinen Schlüsselbund und damit keinen Zugriff auf Inhalte */
+export async function supportEinrichten(email: string, passphrase: string) {
+  const { error } = await sb().auth.updateUser({ password: await anmeldeGeheimnis(passphrase, email) })
+  if (error) throw error
+}
+
+// ---------- Support-Freigabe (durch die Beraterin, befristet) ----------
+
+export type Freigabe = { id: string; gueltig_bis: string; beendet_am: string | null; erstellt_am: string }
+
+export async function ladeFreigaben(): Promise<Freigabe[]> {
+  const { data, error } = await sb().from('support_freigabe').select('id, gueltig_bis, beendet_am, erstellt_am').order('erstellt_am', { ascending: false }).limit(10)
+  if (error) throw error
+  return data as Freigabe[]
+}
+export const aktiveFreigabe = (f: Freigabe[]) => f.find((x) => !x.beendet_am && new Date(x.gueltig_bis) > new Date()) ?? null
+
+export async function freigeben(stunden: number) {
+  const { data: b } = await sb().from('benutzer').select('praxis_id').single()
+  const bis = new Date(Date.now() + stunden * 3600_000).toISOString()
+  const { error } = await sb().from('support_freigabe').insert({ praxis_id: b!.praxis_id, gueltig_bis: bis })
+  if (error) throw error
+  await protokolliere('support_freigegeben', `${stunden} Std.`)
+}
+
+export async function freigabeBeenden(id: string) {
+  const { error } = await sb().from('support_freigabe').update({ beendet_am: new Date().toISOString() }).eq('id', id)
+  if (error) throw error
+  await protokolliere('support_freigabe_beendet')
+}
+
 export async function ladeSchluesselbund(): Promise<SchluesselbundEintrag[]> {
   const { data, error } = await sb().from('schluesselbund').select('art, version, verpackt, kdf')
   if (error) throw error
@@ -68,7 +105,7 @@ export async function protokolliere(ereignis: string, objekt?: string, ergebnis 
 }
 
 export async function ladeAudit(anzahl = 25) {
-  const { data, error } = await sb().from('audit_log').select('zeitpunkt, ereignis, objekt, ergebnis').order('zeitpunkt', { ascending: false }).limit(anzahl)
+  const { data, error } = await sb().from('audit_log').select('zeitpunkt, ereignis, objekt, ergebnis, user_id').order('zeitpunkt', { ascending: false }).limit(anzahl)
   if (error) throw error
   return data ?? []
 }

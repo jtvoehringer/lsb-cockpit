@@ -3,7 +3,7 @@ import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { SchmalerRahmen } from '@/components/Rahmen'
 import { FalschePassphrase } from '@/lib/crypto/kern'
-import { anmeldenMitPassphrase, ladeSchluesselbund, protokolliere, totpBestaetigen, tresorOeffnen } from '@/lib/konto'
+import { anmeldenMitPassphrase, ladeSchluesselbund, protokolliere, rolle, totpBestaetigen, tresorOeffnen } from '@/lib/konto'
 import { useTresor } from '@/lib/tresor'
 
 export default function Anmelden() {
@@ -34,6 +34,7 @@ export default function Anmelden() {
     setFehler(''); setArbeitet('Wird geprüft …')
     try {
       await totpBestaetigen(faktorId!, code)
+      if ((await rolle()) === 'support') { setPassphrase(''); router.replace('/support'); return }
       setArbeitet('Tresor wird geöffnet …')
       if (!(await ladeSchluesselbund()).some((s) => s.art === 'master')) { router.replace('/einrichten'); return }
       tresor.oeffnen(await tresorOeffnen(passphrase))

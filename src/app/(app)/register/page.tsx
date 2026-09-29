@@ -123,14 +123,15 @@ export default function Register() {
       <div className="karte overflow-x-auto p-0">
         <table className="w-full text-sm">
           <thead><tr className="text-left text-xs uppercase tracking-widest text-text-subtle">
-            {['Chiffre', 'Name', 'Hinweis', 'Letzte Sitzung', ''].map((h) => <th key={h} className="px-4 py-3 font-medium">{h}</th>)}
+            {['Chiffre', 'Name', 'Hinweis / Adresse', 'Letzte Sitzung', ''].map((h) => <th key={h} className="px-4 py-3 font-medium">{h}</th>)}
           </tr></thead>
           <tbody>
             {gefiltert.map((z) => bearbeiten?.id === z.id ? (
               <tr key={z.id} className="border-t border-border bg-background">
                 <td className="px-4 py-2 tabular-nums">{z.chiffre}</td>
                 <td className="px-2"><input aria-label="Name" value={bearbeiten.name ?? ''} onChange={(e) => setBearbeiten({ ...bearbeiten, name: e.target.value })} /></td>
-                <td className="px-2"><input aria-label="Hinweis" value={bearbeiten.notiz ?? ''} onChange={(e) => setBearbeiten({ ...bearbeiten, notiz: e.target.value })} /></td>
+                <td className="px-2"><input aria-label="Hinweis" value={bearbeiten.notiz ?? ''} onChange={(e) => setBearbeiten({ ...bearbeiten, notiz: e.target.value })} />
+                  <textarea aria-label="Adresse für Honorarnoten" placeholder="Adresse für Honorarnoten (optional)" rows={2} value={bearbeiten.adresse ?? ''} onChange={(e) => setBearbeiten({ ...bearbeiten, adresse: e.target.value })} className="mt-1 block w-full rounded-md border border-border-input bg-surface p-2 text-sm" /></td>
                 <td className="px-4 tabular-nums">{z.letzteSitzung ? datum(z.letzteSitzung) : '–'}</td>
                 <td className="whitespace-nowrap px-4"><button className="btn btn-cta px-3 py-1 text-xs" onClick={() => void speichern(bearbeiten)}>Speichern</button> <button className="btn btn-ghost px-3 py-1 text-xs" onClick={() => setBearbeiten(null)}>Abbrechen</button></td>
               </tr>

@@ -1,28 +1,39 @@
 'use client'
 import { useRouter } from 'next/navigation'
-import { useEffect, useState } from 'react'
-import { abmelden, ladeAudit, protokolliere } from '@/lib/konto'
+import { useCallback, useEffect, useState } from 'react'
+import { abmelden, aktiveFreigabe, freigabeBeenden, freigeben, ladeAudit, ladeFreigaben, protokolliere, type Freigabe } from '@/lib/konto'
+import { supabaseBrowser } from '@/lib/supabase/client'
 import { useTresor } from '@/lib/tresor'
 
-type AuditZeile = { zeitpunkt: string; ereignis: string; objekt: string | null; ergebnis: string | null }
+type AuditZeile = { zeitpunkt: string; ereignis: string; objekt: string | null; ergebnis: string | null; user_id: string }
 
 const EREIGNIS: Record<string, string> = {
   einrichtung: 'Konto eingerichtet', anmeldung: 'Anmeldung', abmeldung: 'Abmeldung', entsperrt: 'Entsperrt',
   gesperrt: 'Gesperrt', entsperren: 'Entsperren', abmeldung_ueberall: 'Auf allen Geräten abgemeldet',
   akte_angelegt: 'Akte angelegt', protokoll_abgeschlossen: 'Protokoll abgeschlossen', protokoll_korrigiert: 'Protokoll korrigiert',
   register_geoeffnet: 'Register geöffnet', register_geaendert: 'Register geändert', register_gesperrt: 'Register gesperrt',
-  uebernahme_prototyp: 'Übernahme aus Prototyp',
+  uebernahme_prototyp: 'Übernahme aus Prototyp', buchung_angelegt: 'Buchung angelegt', buchung_geaendert: 'Buchung geändert',
+  buchung_geloescht: 'Buchung gelöscht', honorarnote_ausgestellt: 'Honorarnote ausgestellt', honorarnote_bezahlt: 'Honorarnote bezahlt',
+  honorarnote_storniert: 'Honorarnote storniert', einstellungen_geaendert: 'Einstellungen geändert',
+  support_freigegeben: 'Support freigegeben', support_freigabe_beendet: 'Support-Freigabe beendet', support_zugriff: 'Zugriff durch Support',
 }
 
 export default function Schutz() {
   const router = useRouter()
   const tresor = useTresor()
   const [audit, setAudit] = useState<AuditZeile[] | null>(null)
+  const [freigaben, setFreigaben] = useState<Freigabe[]>([])
+  const [ich, setIch] = useState('')
   const [fehler, setFehler] = useState('')
 
-  useEffect(() => { ladeAudit(30).then(setAudit).catch((e) => setFehler(e.message)) }, [])
+  const laden = useCallback(async () => {
+    const [a, f, u] = await Promise.all([ladeAudit(40), ladeFreigaben(), supabaseBrowser().auth.getUser()])
+    setAudit(a as AuditZeile[]); setFreigaben(f); setIch(u.data.user?.id ?? '')
+  }, [])
+  useEffect(() => { laden().catch((e) => setFehler(e.message)) }, [laden])
 
   const zeit = (iso: string) => new Intl.DateTimeFormat('de-AT', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Europe/Vienna' }).format(new Date(iso))
+  const aktiv = aktiveFreigabe(freigaben)
 
   return (
     <div className="space-y-6">
@@ -30,6 +41,7 @@ export default function Schutz() {
         <p className="overline">Schutz &amp; Audit</p>
         <h1 className="mt-2 font-heading text-heading">Schutz &amp; Audit</h1>
       </div>
+      {fehler && <p className="fehler">{fehler}</p>}
 
       <div className="karte grid gap-2 text-sm sm:grid-cols-[180px_1fr]">
         <b>Version</b><span className="tabular-nums">Commit {process.env.NEXT_PUBLIC_COMMIT} · ausgeliefert {zeit(process.env.NEXT_PUBLIC_BUILD_ZEIT!)}</span>
@@ -37,14 +49,30 @@ export default function Schutz() {
         <b>Anmeldung</b><span>Passphrase und Authenticator-App (zwei Faktoren); Datenzugriff nur mit beiden.</span>
       </div>
 
+      <div className="karte space-y-3">
+        <h2 className="font-heading text-heading">Support-Freigabe (ICP)</h2>
+        <p className="text-sm text-text-muted">Ohne deine Freigabe hat niemand Zugang – auch ICP nicht. Mit einer befristeten Freigabe sieht der Support Einstellungen, Chiffren, Termine und dieses Protokoll, aber <b>keine Namen, keine Protokollinhalte, kein Register und keine Finanzen</b> (dafür fehlt ihm der Schlüssel). Jeder Zugriff erscheint unten.</p>
+        {aktiv ? (
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="hinweis">Freigegeben bis {zeit(aktiv.gueltig_bis)}</span>
+            <button className="btn btn-cta" onClick={() => void freigabeBeenden(aktiv.id).then(laden).catch((e) => setFehler(e.message))}>Freigabe jetzt beenden</button>
+          </div>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {[[1, '1 Stunde'], [24, '24 Stunden'], [168, '7 Tage']].map(([h, t]) => (
+              <button key={h} className="btn btn-ghost" onClick={() => { if (confirm(`Support ${t} lang freigeben? Du kannst die Freigabe jederzeit beenden.`)) void freigeben(h as number).then(laden).catch((e) => setFehler(e.message)) }}>{t} freigeben</button>
+            ))}
+          </div>
+        )}
+      </div>
+
       <div className="karte">
         <h2 className="font-heading text-heading">Letzte Ereignisse</h2>
-        {fehler && <p className="fehler">{fehler}</p>}
         {audit && (audit.length === 0 ? <p className="mt-3 text-text-muted">Noch keine Einträge.</p> : (
           <table className="mt-4 w-full text-sm">
-            <thead><tr className="text-left text-text-subtle"><th className="py-2 font-medium">Zeitpunkt</th><th className="font-medium">Ereignis</th><th className="font-medium">Ergebnis</th></tr></thead>
+            <thead><tr className="text-left text-text-subtle"><th className="py-2 font-medium">Zeitpunkt</th><th className="font-medium">Ereignis</th><th className="font-medium">Wer</th><th className="font-medium">Ergebnis</th></tr></thead>
             <tbody>{audit.map((a, i) => (
-              <tr key={i} className="border-t border-border"><td className="py-2 tabular-nums">{zeit(a.zeitpunkt)}</td><td>{EREIGNIS[a.ereignis] ?? a.ereignis}</td><td>{a.ergebnis}</td></tr>
+              <tr key={i} className={`border-t border-border ${a.user_id !== ich ? 'bg-sand/50' : ''}`}><td className="py-2 tabular-nums">{zeit(a.zeitpunkt)}</td><td>{EREIGNIS[a.ereignis] ?? a.ereignis}</td><td>{a.user_id === ich ? 'du' : 'Support (ICP)'}</td><td>{a.ergebnis}</td></tr>
             ))}</tbody>
           </table>
         ))}

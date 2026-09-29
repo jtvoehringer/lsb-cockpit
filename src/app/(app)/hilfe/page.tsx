@@ -40,12 +40,14 @@ const BEREICHE: { titel: string; fragen: Frage[] }[] = [
     fragen: [
       { f: 'Was kann der Bereich „Finanzen“?', a: ['Eine einfache Einnahmen-Ausgaben-Rechnung für Kleinunternehmerinnen (Beträge ohne Umsatzsteuer): Einnahmen und Ausgaben mit Kategorie erfassen, Belege anhängen, Monats- und Jahresübersicht, CSV für die Steuerberatung.'] },
       { f: 'Was ist dabei verschlüsselt?', a: ['Beschreibungen und Belege (Dateien samt Dateinamen) – dort können Namen von Klient:innen stehen. Betrag, Datum, Kategorie und Zahlungsart sind nicht verschlüsselt, damit die Summen berechnet werden können; sie enthalten keine Namen.', 'Tipp: In der Beschreibung von Honoraren die Chiffre statt des Namens verwenden.'] },
+      { f: 'Wie stelle ich eine Honorarnote aus?', a: ['Finanzen → Honorarnoten → Chiffre wählen. Angeboten werden alle abgeschlossenen, noch nicht abgerechneten Gespräche; Betrag = Einheiten × Honorarsatz (Voreinstellung unter „Einstellungen“). Name und Adresse eintragen oder mit der Passphrase aus dem Register holen, dann „Honorarnote ausstellen“ und drucken bzw. als PDF speichern.', 'Die Einnahme wird gebucht, wenn das Geld da ist: sofort bei Barzahlung, sonst später mit „Als bezahlt“. Eine stornierte Honorarnote behält ihre Nummer.'] },
       { f: 'Was ist die E1a-Kennzahl bei den Kategorien?', a: ['Die Beilage E1a zur Einkommensteuererklärung fasst Einnahmen und Ausgaben in Kennzahlen zusammen. Die Zuordnung der Kategorien am besten einmal mit der Steuerberatung festlegen und unter „Kategorien“ eintragen – dann erscheint sie in der Übersicht und im CSV.'] },
     ],
   },
   {
     titel: 'Hilfe und Kontakt',
     fragen: [
+      { f: 'Kann ICP auf meine Daten zugreifen?', a: ['Nein – nur wenn du es unter „Schutz & Audit“ → „Support-Freigabe“ ausdrücklich und befristet erlaubst (1 Stunde, 24 Stunden oder 7 Tage). Auch dann sieht der Support nur Einstellungen, Chiffren, Termine und das Ereignisprotokoll – keine Namen, keine Protokollinhalte, kein Register und keine Finanzen. Jeder Zugriff wird protokolliert; du kannst die Freigabe jederzeit beenden.'] },
       { f: 'Etwas funktioniert nicht – was tun?', a: ['Bitte ICP kontaktieren und beschreiben, was du gemacht hast und was angezeigt wurde. Bitte keine Protokollinhalte oder Namen mitschicken – ein Bildschirmfoto der Fehlermeldung genügt.', 'Unter „Schutz & Audit“ siehst du die installierte Version und die letzten Ereignisse.'] },
     ],
   },

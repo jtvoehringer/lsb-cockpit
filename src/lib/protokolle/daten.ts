@@ -15,7 +15,7 @@ export type Sitzung = {
   herkunft: string | null; erstellt_am: string; geaendert_am: string
 }
 export type Version = { id: string; version: number; inhalt_enc: string; erstellt_am: string }
-export type RegisterInhalt = { akte_id: string; chiffre: string; name?: string; kuerzel_alt?: string; notiz?: string }
+export type RegisterInhalt = { akte_id: string; chiffre: string; name?: string; adresse?: string; kuerzel_alt?: string; notiz?: string }
 
 const SITZUNG_FELDER = 'id, akte_id, nr, art, datum, beginn, ende, arbeitseinheiten, vorbereitung_min, nachbereitung_min, prozess_abgeschlossen, protokoll_status, abgeschlossen_am, entwurf_enc, herkunft, erstellt_am, geaendert_am'
 const kurzZeit = (t: string | null) => (t ? t.slice(0, 5) : null)

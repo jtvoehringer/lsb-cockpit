@@ -1,4 +1,5 @@
 'use client'
+import Link from 'next/link'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import brand from '@/config/brand.config'
 import { datum, heute } from '@/lib/format'
@@ -100,6 +101,7 @@ export default function Finanzen() {
         {([['uebersicht', 'Übersicht'], ['buchungen', 'Buchungen'], ['kategorien', 'Kategorien']] as [Ansicht, string][]).map(([k, t]) => (
           <button key={k} onClick={() => setAnsicht(k)} className={`-mb-px border-b-2 px-4 py-2 text-sm ${ansicht === k ? 'border-accent-strong font-semibold text-heading' : 'border-transparent text-text-muted hover:text-heading'}`}>{t}</button>
         ))}
+        <Link href="/finanzen/honorarnoten" className="-mb-px border-b-2 border-transparent px-4 py-2 text-sm text-text-muted no-underline hover:text-heading">Honorarnoten</Link>
       </nav>
       {fehler && <p className="fehler" role="alert">{fehler}</p>}
 

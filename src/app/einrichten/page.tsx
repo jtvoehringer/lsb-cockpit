@@ -5,7 +5,7 @@ import { SchmalerRahmen } from '@/components/Rahmen'
 import brand from '@/config/brand.config'
 import { formatiereCode } from '@/lib/crypto/kern'
 import { pruefePassphrase } from '@/lib/crypto/passphrase'
-import { anmelden, einrichtungAbschliessen, ladeSchluesselbund, schluesselEinrichten, totpAnlegen, totpBestaetigen, tresorOeffnen } from '@/lib/konto'
+import { anmelden, einrichtungAbschliessen, ladeSchluesselbund, rolle, schluesselEinrichten, supportEinrichten, totpAnlegen, totpBestaetigen, tresorOeffnen } from '@/lib/konto'
 import { useTresor } from '@/lib/tresor'
 
 type Schritt = 'code' | 'totp-bestehend' | 'passphrase' | 'totp-neu' | 'notfall'
@@ -61,6 +61,14 @@ export default function Einrichten() {
   }) }
 
   async function schluesselErzeugen() {
+    if ((await rolle()) === 'support') {
+      // Support-Konto: kein Schlüsselbund, kein Notfallblatt – nur Anmeldung
+      setArbeitet('Wird eingerichtet …')
+      await supportEinrichten(email, p1)
+      setP1(''); setP2('')
+      router.replace('/support')
+      return
+    }
     setArbeitet('Schlüssel werden erzeugt …')
     setNotfallcode(await schluesselEinrichten(email, p1))
     setSchritt('notfall')
