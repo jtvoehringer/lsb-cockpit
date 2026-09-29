@@ -7,7 +7,7 @@ import brand from '@/config/brand.config'
 import { formatiereCode, type Tresorinhalt } from '@/lib/crypto/kern'
 import { pruefePassphrase } from '@/lib/crypto/passphrase'
 import {
-  anmelden, einrichtungAbschliessen, hatSchluesselbund, ladeSchluesselbund, rolle, schluesselEinrichten, schluesselEinrichtenMitPasskey,
+  abmelden, anmelden, einrichtungAbschliessen, hatSchluesselbund, ladeSchluesselbund, rolle, schluesselEinrichten, schluesselEinrichtenMitPasskey,
   sicherheitsstufe, supportEinrichten, totpAnlegen, totpBestaetigen, tresorOeffnen, verifizierterTotpFaktor,
 } from '@/lib/konto'
 import { geraetVorschlag, PasskeyAbgebrochen, passkeyMoeglich } from '@/lib/passkey'
@@ -36,6 +36,7 @@ export default function Einrichten() {
   const [verwahrt, setVerwahrt] = useState(false)
   const [arbeitet, setArbeitet] = useState<string | null>(null)
   const [fehler, setFehler] = useState('')
+  const [bereits, setBereits] = useState('')
   const schluessel = useRef<Tresorinhalt | null>(null)
   const pruefung = useMemo(() => pruefePassphrase(p1, email), [p1, email])
 
@@ -44,7 +45,9 @@ export default function Einrichten() {
     setGeraet(geraetVorschlag()); void passkeyMoeglich().then(setPasskeyOk)
     void sicherheitsstufe().then(async ({ angemeldet, aal2 }) => {
       if (!angemeldet) return
-      setEmail((await supabaseBrowser().auth.getUser()).data.user?.email ?? '')
+      const angemeldetAls = (await supabaseBrowser().auth.getUser()).data.user?.email ?? ''
+      if (aal2 && hatSchluesselbund(await ladeSchluesselbund())) { setBereits(angemeldetAls); return }
+      setEmail(angemeldetAls)
       if (aal2) { await nachTotp(); return }
       const f = await verifizierterTotpFaktor()
       if (f) { setFaktorId(f); setSchritt('totp-bestehend') } else { setTotp(await totpAnlegen()); setSchritt('totp-neu') }
@@ -110,7 +113,17 @@ export default function Einrichten() {
 
   return (
     <SchmalerRahmen titel="Konto einrichten" untertitel={UNTERTITEL[schritt]}>
-      {schritt === 'code' && (
+      {schritt === 'code' && bereits && (
+        <div className="space-y-4">
+          <p className="hinweis">Dieser Browser ist noch als <b>{bereits}</b> angemeldet – dieses Konto ist bereits eingerichtet.</p>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" className="btn btn-cta" onClick={() => router.replace('/entsperren')}>Weiter als {bereits}</button>
+            <button type="button" className="btn btn-ghost" onClick={async () => { await abmelden(); tresor.sperren(); setBereits('') }}>Abmelden und anderes Konto einrichten</button>
+          </div>
+        </div>
+      )}
+
+      {schritt === 'code' && !bereits && (
         <form onSubmit={mitCode} className="space-y-5">
           <label>E-Mail-Adresse<input type="email" autoComplete="username" required value={email} onChange={(e) => setEmail(e.target.value)} /></label>
           <label>Einrichtungscode (von ICP)<input type="password" autoComplete="one-time-code" required value={einrichtungscode} onChange={(e) => setEinrichtungscode(e.target.value)} /></label>
