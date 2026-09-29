@@ -7,9 +7,11 @@ import brand from '@/config/brand.config'
 import { datum, stunden, zahl, zeitpunkt } from '@/lib/format'
 import { protokolliere } from '@/lib/konto'
 import {
-  entschluesseleVersion, entwurfLoeschen, ladeAkten, ladeInhalt, ladeSitzung, speichereEntwurf, versionAnhaengen,
+  entschluesseleVersion, entwurfLoeschen, ladeAkten, ladeInhalt, ladeRegister, ladeSitzung, speichereEntwurf, versionAnhaengen,
   type Sitzung, type Version,
 } from '@/lib/protokolle/daten'
+import { pruefeText, TREFFER_TITEL, type Treffer } from '@/lib/protokolle/pseudonym'
+import { ladeStammdaten } from '@/lib/stammdaten'
 import { ART, einheiten, leererInhalt, minuten, type Feld, type Inhalt } from '@/lib/protokolle/modell'
 import { useTresor } from '@/lib/tresor'
 
@@ -29,6 +31,7 @@ export default function ProtokollBearbeiten() {
   const [speicherStand, setSpeicherStand] = useState('')
   const [fehler, setFehler] = useState('')
   const [ansicht, setAnsicht] = useState<{ v: Version; inhalt: Inhalt } | null>(null)
+  const [pruefung, setPruefung] = useState<{ treffer: Treffer[]; bestaetigt: boolean } | null>(null)
   const geaendert = useRef(false)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -64,15 +67,44 @@ export default function ProtokollBearbeiten() {
   const aendereKopf = (k: Partial<Kopf>) => { geaendert.current = true; setKopf((alt) => ({ ...alt!, ...k })) }
   const aendereFeld = (f: Feld, t: string) => { geaendert.current = true; setInhalt((alt) => ({ ...alt, felder: { ...alt.felder, [f]: t } })) }
 
-  async function abschliessen() {
+  /** Pseudonymisierungs-Check (F-15): Namen aus Register und Stammdaten dieser Akte, dazu Muster – alles lokal. */
+  async function pruefen(): Promise<Treffer[]> {
+    const register = await ladeRegister(tresor.schluessel('zone_c'))
+    const namen: (string | undefined)[] = register.map((r) => r.name)
+    const eigener = register.find((r) => r.akte_id === s!.akte_id)
+    if (eigener?.stammdaten_id) {
+      const st = await ladeStammdaten(tresor.schluessel('zone_a'), eigener.stammdaten_id).catch(() => null)
+      if (st) namen.push(st.erziehungsberechtigte, st.notfallkontakt)
+    }
+    const felder = Object.fromEntries(ART[s!.art].felder.map(([f, titel]) => [titel, inhalt.felder[f]]))
+    return pruefeText(felder, namen.filter((n): n is string => !!n))
+  }
+
+  async function abschliessen(geprueft = false) {
     if (!s || !kopf) return
     const fehlt = [!kopf.datum && 'Datum', !minuten(kopf.beginn, kopf.ende) && 'Beginn/Ende'].filter(Boolean)
     if (fehlt.length) { setFehler(`Bitte ausfüllen: ${fehlt.join(', ')}`); return }
-    if (!korrektur && !confirm('Protokoll abschließen? Danach sind Änderungen nur noch als nachvollziehbare Korrektur möglich.')) return
+    setFehler('')
     try {
+      if (!geprueft) {
+        const t = await pruefen()
+        if (t.length) { setPruefung({ treffer: t, bestaetigt: false }); return }
+      }
+      if (!korrektur && !confirm('Protokoll abschließen? Danach sind Änderungen nur noch als nachvollziehbare Korrektur möglich.')) return
+      if (geprueft && pruefung) await protokolliere('pseudonym_bestaetigt', `Nr. ${s.nr}`, `${pruefung.treffer.length} Treffer`)
       await versionAnhaengen(tresor.schluessel('zone_b'), s, kopf, inhalt)
       await protokolliere(korrektur ? 'protokoll_korrigiert' : 'protokoll_abgeschlossen', `Nr. ${s.nr}`)
+      setPruefung(null)
       await laden()
+    } catch (e) { setFehler((e as Error).message) }
+  }
+
+  async function nurPruefen() {
+    setFehler('')
+    try {
+      const t = await pruefen()
+      setPruefung(t.length ? { treffer: t, bestaetigt: false } : null)
+      if (!t.length) setSpeicherStand('Prüfung: keine Namen oder Kontaktdaten gefunden')
     } catch (e) { setFehler((e as Error).message) }
   }
 
@@ -137,8 +169,29 @@ export default function ProtokollBearbeiten() {
           {entwurf && <button className="btn btn-ghost text-accent-strong" onClick={loeschen}>Entwurf löschen</button>}
           {!entwurf && !korrektur && <button className="btn btn-ghost" onClick={() => setKorrektur(true)}>Korrigieren</button>}
           {korrektur && <button className="btn btn-ghost" onClick={() => { if (confirm('Korrektur verwerfen?')) void laden() }}>Verwerfen</button>}
-          {bearbeitbar && <button className="btn btn-cta" onClick={abschliessen} disabled={aufnahme}>{korrektur ? 'Korrektur speichern' : 'Protokoll abschließen'}</button>}
+          {bearbeitbar && <button className="btn btn-ghost" onClick={() => void nurPruefen()} disabled={aufnahme}>Auf Namen prüfen</button>}
+          {bearbeitbar && <button className="btn btn-cta" onClick={() => void abschliessen()} disabled={aufnahme}>{korrektur ? 'Korrektur speichern' : 'Protokoll abschließen'}</button>}
         </div>
+
+        {pruefung && (
+          <div className="karte space-y-3 border-2 border-accent-strong" role="alertdialog" aria-label="Pseudonymisierungs-Check">
+            <h2 className="font-heading text-heading">Bitte prüfen: {pruefung.treffer.length === 1 ? '1 möglicher Personenbezug' : `${pruefung.treffer.length} mögliche Personenbezüge`}</h2>
+            <p className="text-sm text-text-muted">Protokolle sollen niemanden identifizierbar machen. Bitte die Stellen umformulieren (z. B. „die Mutter“ statt des Namens) – oder bestätigen, dass sie unbedenklich sind.</p>
+            <ul className="divide-y divide-border text-sm">
+              {pruefung.treffer.map((t, i) => (
+                <li key={i} className="py-2">
+                  <b>{TREFFER_TITEL[t.art]}</b> <span className="text-text-muted">· {t.feld}</span>
+                  <div className="mt-1">{t.umfeld.split(t.text).map((teil, j, alle) => <span key={j}>{teil}{j < alle.length - 1 && <mark className="rounded bg-sand px-1 font-medium">{t.text}</mark>}</span>)}</div>
+                </li>
+              ))}
+            </ul>
+            <label className="flex items-start gap-3 text-sm font-normal text-text"><input type="checkbox" className="mt-0.5" checked={pruefung.bestaetigt} onChange={(e) => setPruefung({ ...pruefung, bestaetigt: e.target.checked })} /> Ich habe die Stellen geprüft – sie machen niemanden identifizierbar.</label>
+            <div className="flex flex-wrap gap-2">
+              <button className="btn btn-primary" onClick={() => setPruefung(null)}>Zurück zum Text</button>
+              <button className="btn btn-ghost" disabled={!pruefung.bestaetigt} onClick={() => void abschliessen(true)}>{korrektur ? 'Trotzdem Korrektur speichern' : 'Trotzdem abschließen'}</button>
+            </div>
+          </div>
+        )}
 
         {versionen.length > 0 && (
           <div className="karte">

@@ -16,7 +16,7 @@ const EREIGNIS: Record<string, string> = {
   uebernahme_prototyp: 'Übernahme aus Prototyp', buchung_angelegt: 'Buchung angelegt', buchung_geaendert: 'Buchung geändert',
   buchung_geloescht: 'Buchung gelöscht', honorarnote_ausgestellt: 'Honorarnote ausgestellt', honorarnote_bezahlt: 'Honorarnote bezahlt',
   honorarnote_storniert: 'Honorarnote storniert', einstellungen_geaendert: 'Einstellungen geändert',
-  notfallcode_verwendet: 'Mit Notfallblatt entsperrt', stammdaten_geaendert: 'Stammdaten geändert', dokument_hochgeladen: 'Dokument hochgeladen', dokument_geloescht: 'Dokument gelöscht', passkey_eingerichtet: 'Gerät (Passkey) eingerichtet', passkey_entfernt: 'Gerät (Passkey) entfernt',
+  notfallcode_verwendet: 'Mit Notfallblatt entsperrt', stammdaten_geaendert: 'Stammdaten geändert', pseudonym_bestaetigt: 'Namens-Prüfung bestätigt', dokument_hochgeladen: 'Dokument hochgeladen', dokument_geloescht: 'Dokument gelöscht', passkey_eingerichtet: 'Gerät (Passkey) eingerichtet', passkey_entfernt: 'Gerät (Passkey) entfernt',
   support_freigegeben: 'Support freigegeben', support_freigabe_beendet: 'Support-Freigabe beendet', support_zugriff: 'Zugriff durch Support',
 }
 
