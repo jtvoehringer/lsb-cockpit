@@ -2,7 +2,8 @@
 // Aufruf (PowerShell):
 //   $env:SUPABASE_SERVICE_ROLE_KEY = "<aus dem Supabase-Dashboard, Project Settings → API Keys>"
 //   node scripts/konto-anlegen.mjs melanie@beispiel.at "Praxis Melanie Vöhringer"
-// Ausgabe: der Einrichtungscode. Ihn persönlich (nicht per E-Mail) übergeben; er gilt nur bis zur Einrichtung.
+// Ausgabe: der Einrichtungscode. Ihn persönlich (nicht per E-Mail) übergeben; er gilt nur bis zur Einrichtung
+// (danach Anmeldung per E-Mail-Code + Authenticator, Entsperren mit Windows Hello / Face ID).
 import { createClient } from '@supabase/supabase-js'
 import { randomBytes } from 'node:crypto'
 
