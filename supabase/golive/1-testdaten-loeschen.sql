@@ -6,8 +6,8 @@
 --   • eine Praxis ohne einstellungen.test = true betroffen wäre,
 --   • ein Konto außerhalb von @lsb-cockpit.invalid betroffen wäre,
 --   • danach noch Testdaten übrig sind.
--- Die Datei im Speicher-Bucket „belege“ (1 verschlüsselter Testbeleg) vorher im Dashboard löschen
--- (Storage → belege → Ordner der Testpraxis) – Supabase erlaubt kein direktes Löschen über SQL.
+-- Die Dateien in den Speicher-Buckets „belege“ und „dokumente“ (verschlüsselte Testdateien) vorher im Dashboard löschen
+-- (Storage → Bucket → Ordner der Testpraxis) – Supabase erlaubt kein direktes Löschen über SQL.
 
 -- ===================== Teil A: Trockenlauf =====================
 with p as (select id from public.praxis where einstellungen->>'test' = 'true'),
@@ -25,6 +25,9 @@ union all select 'fin_buchung', count(*) from public.fin_buchung where praxis_id
 union all select 'fin_beleg', count(*) from public.fin_beleg where praxis_id in (select id from p)
 union all select 'fin_honorarnote', count(*) from public.fin_honorarnote where praxis_id in (select id from p)
 union all select 'support_freigabe', count(*) from public.support_freigabe where praxis_id in (select id from p)
+union all select 'stammdaten', count(*) from public.stammdaten where praxis_id in (select id from p)
+union all select 'stammdaten_dokument', count(*) from public.stammdaten_dokument where praxis_id in (select id from p)
+union all select 'dateien im bucket dokumente', count(*) from storage.objects where bucket_id = 'dokumente'
 union all select 'audit_log', count(*) from public.audit_log where praxis_id in (select id from p)
 union all select 'dateien im bucket belege', count(*) from storage.objects where bucket_id = 'belege';
 
@@ -55,6 +58,8 @@ begin
 
   -- Reihenfolge nach Fremdschlüsseln (Kinder zuerst)
   delete from public.support_freigabe  where praxis_id = any(test_praxen);
+  delete from public.stammdaten_dokument where praxis_id = any(test_praxen);
+  delete from public.stammdaten        where praxis_id = any(test_praxen);
   delete from public.fin_honorarnote   where praxis_id = any(test_praxen);
   delete from public.fin_beleg         where praxis_id = any(test_praxen);
   delete from public.fin_buchung       where praxis_id = any(test_praxen);

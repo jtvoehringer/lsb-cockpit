@@ -25,6 +25,7 @@ export default function Protokolle() {
   }, [])
 
   const chiffreVon = useMemo(() => new Map(akten.map((a) => [a.id, a.chiffre])), [akten])
+  const ohneEinwilligung = useMemo(() => new Set(akten.filter((a) => a.status === 'offen' && !a.einwilligung_am).map((a) => a.id)), [akten])
   const zeilen = (sitzungen ?? []).filter((s) =>
     (!filter.chiffre || (chiffreVon.get(s.akte_id) ?? '').toLowerCase().includes(filter.chiffre.toLowerCase())) &&
     (!filter.von || s.datum >= filter.von) && (!filter.bis || s.datum <= filter.bis))
@@ -64,6 +65,7 @@ export default function Protokolle() {
         </div>
       </div>
       {fehler && <p className="fehler" role="alert">{fehler}</p>}
+      {ohneEinwilligung.size > 0 && <p className="hinweis text-sm">Bei {ohneEinwilligung.size} offenen Akte{ohneEinwilligung.size === 1 ? '' : 'n'} ist noch keine Einwilligung zur Verarbeitung der Gesundheitsdaten erfasst. Nachtragen im <Link href="/register">Register</Link> unter „Stammdaten“.</p>}
 
       <div className="flex flex-wrap gap-3">
         <label>Chiffre<input value={filter.chiffre} onChange={(e) => setFilter({ ...filter, chiffre: e.target.value })} placeholder="alle" /></label>
@@ -83,7 +85,7 @@ export default function Protokolle() {
                 <tr key={s.id} className="border-t border-border hover:bg-background">
                   <td className="px-4 py-3 tabular-nums"><Link href={`/protokolle/${s.id}`} className="no-underline">{s.nr}</Link></td>
                   <td className="px-4 tabular-nums"><Link href={`/protokolle/${s.id}`} className="no-underline">{datum(s.datum)}</Link></td>
-                  <td className="px-4 tabular-nums">{chiffreVon.get(s.akte_id)}</td>
+                  <td className="px-4 tabular-nums">{chiffreVon.get(s.akte_id)}{ohneEinwilligung.has(s.akte_id) && <span title="Einwilligung (Art. 9 DSGVO) noch nicht erfasst – im Register unter „Stammdaten“" className="ml-2 whitespace-nowrap rounded-full bg-sand px-2 py-0.5 text-xs">Einwilligung fehlt</span>}</td>
                   <td className="px-4">{ART[s.art].kurz}</td>
                   <td className="px-4 text-right tabular-nums">{m ? `${stunden(m)} h` : '–'}</td>
                   <td className="px-4 text-right tabular-nums">{m ? zahl(s.arbeitseinheiten ?? 0) : '–'}</td>

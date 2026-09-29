@@ -19,7 +19,7 @@ Rollen: **J** = Jörgen, **C** = Claude (nur nach ausdrücklichem „Go“ von J
 - [ ] Data API: „Automatically expose new tables“ AUS
 
 ## 2. Testdaten löschen
-1. [ ] (J) Supabase → Storage → Bucket `belege` → Ordner der Testpraxis löschen (1 verschlüsselter Testbeleg).
+1. [ ] (J) Supabase → Storage → Buckets `belege` und `dokumente` → jeweils Ordner der Testpraxis löschen (verschlüsselte Testdateien).
 2. [ ] (C) Trockenlauf: `supabase/golive/1-testdaten-loeschen.sql` Teil A. Erwartet: 1 Testpraxis, 3 Konten @lsb-cockpit.invalid, „davon NICHT …“ = 0, Dateien im Bucket = 0.
 3. [ ] (J) Freigabe „Testdaten löschen“ → (C) Teil B ausführen. Bricht selbst ab, wenn eine echte Praxis oder ein echtes Konto betroffen wäre. Probelauf am 29.09.2026 erfolgreich (zurückgerollt).
 4. [ ] (C) Kontrolle: 0 Praxen, 0 Konten.

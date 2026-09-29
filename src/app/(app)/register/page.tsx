@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Bestaetigung } from '@/components/Bestaetigung'
+import { StammdatenPanel } from '@/components/StammdatenPanel'
 import { datum } from '@/lib/format'
 import { protokolliere } from '@/lib/konto'
 import { aktualisiereRegister, ladeAkten, ladeRegister, ladeSitzungen, neueAkte, neueSitzung, type Akte, type RegisterInhalt } from '@/lib/protokolle/daten'
@@ -22,10 +23,11 @@ export default function Register() {
   const [zeilen, setZeilen] = useState<Zeile[]>([])
   const [suche, setSuche] = useState('')
   const [bearbeiten, setBearbeiten] = useState<Zeile | null>(null)
+  const [stamm, setStamm] = useState<Zeile | null>(null)
   const [neu, setNeu] = useState({ name: '', notiz: '' })
   const aktivitaet = useRef(Date.now())
 
-  const sperren = useCallback(() => { setOffen(false); setZeilen([]); setBearbeiten(null); setSuche('') }, [])
+  const sperren = useCallback(() => { setOffen(false); setZeilen([]); setBearbeiten(null); setStamm(null); setSuche('') }, [])
 
   // Nach 5 Minuten ohne Eingabe wieder sperren
   useEffect(() => {
@@ -104,12 +106,14 @@ export default function Register() {
         <p className="text-xs text-text-subtle">Die Chiffre wird automatisch vergeben. Der Name steht nur verschlüsselt im Register.</p>
       </div>
 
+      {stamm && <StammdatenPanel key={stamm.id} zeile={stamm} schliessen={() => setStamm(null)} gespeichert={laden} />}
+
       <label className="max-w-sm">Suche (Name, Chiffre, Hinweis)<input value={suche} onChange={(e) => setSuche(e.target.value)} autoComplete="off" /></label>
 
       <div className="karte overflow-x-auto p-0">
         <table className="w-full text-sm">
           <thead><tr className="text-left text-xs uppercase tracking-widest text-text-subtle">
-            {['Chiffre', 'Name', 'Hinweis / Adresse', 'Letzte Sitzung', ''].map((h) => <th key={h} className="px-4 py-3 font-medium">{h}</th>)}
+            {['Chiffre', 'Name', 'Hinweis / Adresse', 'Einwilligung', 'Letzte Sitzung', ''].map((h) => <th key={h} className="px-4 py-3 font-medium">{h}</th>)}
           </tr></thead>
           <tbody>
             {gefiltert.map((z) => bearbeiten?.id === z.id ? (
@@ -118,6 +122,7 @@ export default function Register() {
                 <td className="px-2"><input aria-label="Name" value={bearbeiten.name ?? ''} onChange={(e) => setBearbeiten({ ...bearbeiten, name: e.target.value })} /></td>
                 <td className="px-2"><input aria-label="Hinweis" value={bearbeiten.notiz ?? ''} onChange={(e) => setBearbeiten({ ...bearbeiten, notiz: e.target.value })} />
                   <textarea aria-label="Adresse für Honorarnoten" placeholder="Adresse für Honorarnoten (optional)" rows={2} value={bearbeiten.adresse ?? ''} onChange={(e) => setBearbeiten({ ...bearbeiten, adresse: e.target.value })} className="mt-1 block w-full rounded-md border border-border-input bg-surface p-2 text-sm" /></td>
+                <td className="px-4" />
                 <td className="px-4 tabular-nums">{z.letzteSitzung ? datum(z.letzteSitzung) : '–'}</td>
                 <td className="whitespace-nowrap px-4"><button className="btn btn-cta px-3 py-1 text-xs" onClick={() => void speichern(bearbeiten)}>Speichern</button> <button className="btn btn-ghost px-3 py-1 text-xs" onClick={() => setBearbeiten(null)}>Abbrechen</button></td>
               </tr>
@@ -126,8 +131,9 @@ export default function Register() {
                 <td className="px-4 py-3 tabular-nums">{z.chiffre}</td>
                 <td className="px-4">{z.name || <span className="text-text-subtle">– noch kein Name –</span>}</td>
                 <td className="px-4 text-text-muted">{[z.notiz, z.kuerzel_alt && `altes Kürzel ${z.kuerzel_alt}`].filter(Boolean).join(' · ')}</td>
+                <td className="px-4 tabular-nums">{z.akte?.einwilligung_am ? datum(z.akte.einwilligung_am) : <span className="font-medium text-accent-strong">fehlt</span>}</td>
                 <td className="px-4 tabular-nums">{z.letzteSitzung ? datum(z.letzteSitzung) : '–'}</td>
-                <td className="whitespace-nowrap px-4"><button className="btn btn-ghost px-3 py-1 text-xs" onClick={() => setBearbeiten(z)}>Bearbeiten</button> <Link className="text-xs" href={`/protokolle?chiffre=${encodeURIComponent(z.chiffre)}`}>Protokolle</Link></td>
+                <td className="whitespace-nowrap px-4"><button className="btn btn-ghost px-3 py-1 text-xs" onClick={() => setBearbeiten(z)}>Bearbeiten</button> <button className="btn btn-ghost px-3 py-1 text-xs" onClick={() => { setStamm(z); scrollTo({ top: 0, behavior: 'smooth' }) }}>Stammdaten</button> <Link className="text-xs" href={`/protokolle?chiffre=${encodeURIComponent(z.chiffre)}`}>Protokolle</Link></td>
               </tr>
             ))}
           </tbody>

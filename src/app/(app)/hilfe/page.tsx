@@ -34,6 +34,7 @@ const BEREICHE: { titel: string; fragen: Frage[] }[] = [
     titel: 'Register und Nachweis',
     fragen: [
       { f: 'Warum muss ich das Register noch einmal bestätigen?', a: ['Das Register verbindet Chiffren mit Namen und ist deshalb zusätzlich geschützt – mit Windows Hello / Face ID oder der Passphrase. Nach 5 Minuten ohne Eingabe sperrt es sich wieder. In den Protokoll-Listen erscheinen nie Namen.'] },
+      { f: 'Wo erfasse ich Stammdaten und Einwilligungen?', a: ['Im Register bei der Person auf „Stammdaten“: Geburtsjahr, Telefon, E-Mail, bei Minderjährigen die Erziehungsberechtigten, dazu Beratungsvereinbarung, Einwilligung zur Verarbeitung der Gesundheitsdaten (Art. 9 DSGVO), Entbindung von der Verschwiegenheit und E-Mail-Erlaubnis – jeweils mit Datum und gegebenenfalls Widerruf.', 'Den unterschriebenen Zettel kannst du dort fotografieren oder als PDF hochladen; er wird vorher auf deinem Gerät verschlüsselt.', 'Solange die Einwilligung zur Verarbeitung der Gesundheitsdaten fehlt, zeigt die Protokoll-Liste bei der Chiffre „Einwilligung fehlt“. Nach einem Widerruf erscheint der Hinweis wieder.'] },
       { f: 'Wofür ist die Nachweisliste?', a: ['Sie zählt Protokolle, Einheiten, Stunden, Erstgespräche und abgeschlossene Prozesse – z. B. für den Befähigungsnachweis. Sie enthält nur Chiffren, keine Namen, und lässt sich als PDF drucken oder als CSV (Excel) speichern.'] },
     ],
   },
