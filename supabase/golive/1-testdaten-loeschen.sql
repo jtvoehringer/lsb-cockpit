@@ -25,6 +25,7 @@ union all select 'fin_buchung', count(*) from public.fin_buchung where praxis_id
 union all select 'fin_beleg', count(*) from public.fin_beleg where praxis_id in (select id from p)
 union all select 'fin_honorarnote', count(*) from public.fin_honorarnote where praxis_id in (select id from p)
 union all select 'support_freigabe', count(*) from public.support_freigabe where praxis_id in (select id from p)
+union all select 'loeschprotokoll', count(*) from public.loeschprotokoll where praxis_id in (select id from p)
 union all select 'stammdaten', count(*) from public.stammdaten where praxis_id in (select id from p)
 union all select 'stammdaten_dokument', count(*) from public.stammdaten_dokument where praxis_id in (select id from p)
 union all select 'dateien im bucket dokumente', count(*) from storage.objects where bucket_id = 'dokumente'
@@ -58,6 +59,7 @@ begin
 
   -- Reihenfolge nach Fremdschlüsseln (Kinder zuerst)
   delete from public.support_freigabe  where praxis_id = any(test_praxen);
+  delete from public.loeschprotokoll   where praxis_id = any(test_praxen);
   delete from public.stammdaten_dokument where praxis_id = any(test_praxen);
   delete from public.stammdaten        where praxis_id = any(test_praxen);
   delete from public.fin_honorarnote   where praxis_id = any(test_praxen);

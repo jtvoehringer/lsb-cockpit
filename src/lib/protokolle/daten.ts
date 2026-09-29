@@ -7,7 +7,7 @@ import { einheiten, minuten, naechsteChiffre, type Art, type Inhalt } from './mo
 
 const sb = () => supabaseBrowser()
 
-export type Akte = { id: string; chiffre: string; status: 'offen' | 'abgeschlossen'; erstellt_am: string; einwilligung_am: string | null }
+export type Akte = { id: string; chiffre: string; status: 'offen' | 'abgeschlossen' | 'geloescht'; erstellt_am: string; einwilligung_am: string | null; abschluss_datum: string | null; aufbewahrung_bis: string | null }
 export type Sitzung = {
   id: string; akte_id: string; nr: number; art: Art; datum: string; beginn: string | null; ende: string | null
   arbeitseinheiten: number | null; vorbereitung_min: number; nachbereitung_min: number; prozess_abgeschlossen: boolean
@@ -34,7 +34,7 @@ export async function praxis() {
 // ---------- Akten ----------
 
 export async function ladeAkten(): Promise<Akte[]> {
-  const { data, error } = await sb().from('akte').select('id, chiffre, status, erstellt_am, einwilligung_am').order('erstellt_am', { ascending: false })
+  const { data, error } = await sb().from('akte').select('id, chiffre, status, erstellt_am, einwilligung_am, abschluss_datum, aufbewahrung_bis').order('erstellt_am', { ascending: false })
   if (error) throw error
   return data as Akte[]
 }
@@ -45,7 +45,7 @@ export async function neueAkte(kC: CryptoKey, zusatz: Omit<RegisterInhalt, 'akte
   for (let versuch = 0; versuch < 5; versuch++) {
     const vorhandene = (await ladeAkten()).map((a) => a.chiffre)
     const chiffre = naechsteChiffre(vorhandene, jahr, p.test)
-    const { data, error } = await sb().from('akte').insert({ praxis_id: p.id, chiffre }).select('id, chiffre, status, erstellt_am, einwilligung_am').single()
+    const { data, error } = await sb().from('akte').insert({ praxis_id: p.id, chiffre }).select('id, chiffre, status, erstellt_am, einwilligung_am, abschluss_datum, aufbewahrung_bis').single()
     if (error?.code === '23505') continue // Chiffre inzwischen vergeben – neu versuchen
     if (error) throw error
     const regId = crypto.randomUUID()

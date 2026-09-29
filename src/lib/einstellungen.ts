@@ -1,6 +1,7 @@
 'use client'
 // Praxis-Einstellungen (Absender und Bankdaten für Honorarnoten, Honorarsatz). Keine Klientendaten → im Klartext in praxis.einstellungen.
 import { supabaseBrowser } from './supabase/client'
+import { FRISTEN_STANDARD, type FristEinstellungen } from './fristen'
 import { praxis } from './protokolle/daten'
 
 export type PraxisEinstellungen = {
@@ -27,6 +28,23 @@ export async function speichereEinstellungen(e: PraxisEinstellungen) {
   const { data } = await supabaseBrowser().from('praxis').select('einstellungen').eq('id', p.id).single()
   const alt = (data?.einstellungen ?? {}) as Record<string, unknown>
   const { error } = await supabaseBrowser().from('praxis').update({ einstellungen: { ...alt, honorarnote: e } }).eq('id', p.id)
+  if (error) throw error
+}
+
+// ---------- Aufbewahrungsfristen (praxis.einstellungen.fristen) ----------
+
+export async function ladeFristen(): Promise<FristEinstellungen> {
+  const p = await praxis()
+  const { data, error } = await supabaseBrowser().from('praxis').select('einstellungen').eq('id', p.id).single()
+  if (error) throw error
+  return { ...FRISTEN_STANDARD, ...((data?.einstellungen as { fristen?: Partial<FristEinstellungen> })?.fristen ?? {}) }
+}
+
+export async function speichereFristen(f: FristEinstellungen) {
+  const p = await praxis()
+  const { data } = await supabaseBrowser().from('praxis').select('einstellungen').eq('id', p.id).single()
+  const alt = (data?.einstellungen ?? {}) as Record<string, unknown>
+  const { error } = await supabaseBrowser().from('praxis').update({ einstellungen: { ...alt, fristen: f } }).eq('id', p.id)
   if (error) throw error
 }
 

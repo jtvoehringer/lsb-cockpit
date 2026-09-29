@@ -8,12 +8,13 @@ import { supabaseBrowser } from './supabase/client'
 
 const sb = () => supabaseBrowser()
 
-export type EinwilligungsArt = 'vereinbarung' | 'datenschutz' | 'entbindung' | 'email'
+export type EinwilligungsArt = 'vereinbarung' | 'datenschutz' | 'entbindung' | 'email' | 'aufbewahrung'
 export const EINWILLIGUNGEN: Record<EinwilligungsArt, { titel: string; hinweis: string }> = {
   vereinbarung: { titel: 'Beratungsvereinbarung', hinweis: 'Rahmen, Honorar, Absage, Verschwiegenheit' },
   datenschutz: { titel: 'Einwilligung Gesundheitsdaten (Art. 9 DSGVO)', hinweis: 'Voraussetzung für die Dokumentation; jederzeit widerrufbar' },
   entbindung: { titel: 'Entbindung von der Verschwiegenheit', hinweis: 'nur falls nötig, mit Empfänger und Zweck in der Notiz' },
   email: { titel: 'Kommunikation per E-Mail (Opt-in)', hinweis: 'unverschlüsselte E-Mail ausdrücklich erlaubt' },
+  aufbewahrung: { titel: 'Zustimmung zur längeren Aufbewahrung', hinweis: 'verlängerte Frist laut Einstellungen' },
 }
 
 export type Einwilligung = { id: string; art: EinwilligungsArt; erteilt_am: string; widerrufen_am?: string; notiz?: string }

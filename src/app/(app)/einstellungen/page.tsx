@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { ibanFormatiert, ibanGueltig, ladeEinstellungen, LEER, speichereEinstellungen, type PraxisEinstellungen } from '@/lib/einstellungen'
+import { ibanFormatiert, ibanGueltig, ladeEinstellungen, ladeFristen, LEER, speichereEinstellungen, speichereFristen, type PraxisEinstellungen } from '@/lib/einstellungen'
+import { FRISTEN_STANDARD, pruefeFristEinstellungen, type FristEinstellungen } from '@/lib/fristen'
 import { betragAusText, euro } from '@/lib/finanzen/modell'
 import { protokolliere } from '@/lib/konto'
 
@@ -56,6 +57,38 @@ export default function Einstellungen() {
       </div>
       {fehler && <p className="fehler" role="alert">{fehler}</p>}
       <div className="flex items-center gap-3"><button className="btn btn-cta">Speichern</button><span className="text-sm text-text-subtle" aria-live="polite">{stand}</span></div>
+      <FristenEinstellungen />
     </form>
+  )
+}
+
+/** Aufbewahrungsfristen (eigener Speichern-Knopf). Wirken beim nächsten „Akte abschließen“; bestehende Fristen bleiben. */
+function FristenEinstellungen() {
+  const [f, setF] = useState<FristEinstellungen>(FRISTEN_STANDARD)
+  const [stand, setStand] = useState('')
+  const [fehler, setFehler] = useState('')
+  useEffect(() => { ladeFristen().then(setF).catch((x) => setFehler(x.message)) }, [])
+
+  async function speichern() {
+    setStand(''); const p = pruefeFristEinstellungen(f)
+    if (p.length) { setFehler(p.join(' ')); return }
+    setFehler('')
+    try { await speichereFristen(f); await protokolliere('fristen_geaendert', `${f.standard_jahre}/${f.zustimmung_jahre} J.`); setStand('Gespeichert.') } catch (x) { setFehler((x as Error).message) }
+  }
+  const zahlFeld = (k: 'standard_jahre' | 'zustimmung_jahre' | 'volljaehrig_mit', titel: string) => (
+    <label>{titel}<input type="number" min={1} max={30} value={f[k]} onChange={(x) => setF({ ...f, [k]: Number(x.target.value) || 0 })} /></label>
+  )
+
+  return (
+    <div className="karte grid gap-4 sm:grid-cols-3">
+      <h2 className="font-heading text-heading sm:col-span-3">Aufbewahrungsfristen</h2>
+      {zahlFeld('standard_jahre', 'Standard (Jahre nach Abschluss)')}
+      {zahlFeld('zustimmung_jahre', 'Mit Zustimmung (Jahre)')}
+      {zahlFeld('volljaehrig_mit', 'Volljährigkeit mit (Jahren)')}
+      <label className="flex items-center gap-3 text-sm font-normal text-text sm:col-span-3"><input type="checkbox" checked={f.minderjaehrige_ab_volljaehrigkeit} onChange={(x) => setF({ ...f, minderjaehrige_ab_volljaehrigkeit: x.target.checked })} /> Bei Minderjährigen beginnt die Frist erst mit der Volljährigkeit</label>
+      <p className="text-xs text-text-subtle sm:col-span-3">Voreingestellt laut Anforderungsaufnahme (3 / 7 Jahre, Minderjährige ab Volljährigkeit) – bitte rechtlich bestätigen lassen. Änderungen gelten für künftig abgeschlossene Akten; bereits berechnete Fristen bleiben.</p>
+      {fehler && <p className="fehler sm:col-span-3" role="alert">{fehler}</p>}
+      <div className="flex items-center gap-3 sm:col-span-3"><button type="button" className="btn btn-primary" onClick={() => void speichern()}>Fristen speichern</button><span className="text-sm text-text-subtle" aria-live="polite">{stand}</span></div>
+    </div>
   )
 }
