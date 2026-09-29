@@ -21,5 +21,12 @@ Den ausgegebenen **Einrichtungscode** persönlich übergeben. `/einrichten`: E-M
 - Öffentliche Werte in `.env.production` (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`). **Kein** Service-Role-Schlüssel.
 - Build: `npm run vercel-build` = Typprüfung + Krypto-Tests + Build.
 
+## Wiederherstellung aus einem Gesamt-Export (Anbieterwechsel, Katastrophenfall)
+1. Ziel-Projekt: Migrationen aus `supabase/migrations/` einspielen, Konto mit `scripts/konto-anlegen.mjs` anlegen (Einrichtung **nicht** durchführen).
+2. `node scripts/export-einspielen.mjs <export.json> --praxis <neue praxis_id> --benutzer <neue user_id>` – fragt nach dem Wiederherstellungscode (oder der Passphrase). Entfernt nur die äußere Export-Verschlüsselung; Inhalte bleiben verschlüsselt.
+3. `wiederherstellung/einspielen.sql` im SQL-Editor ausführen; Dateien aus `wiederherstellung/dateien/` hochladen (oder `--hochladen` mit `SUPABASE_URL`/`SUPABASE_SERVICE_ROLE_KEY`).
+4. Beraterin meldet sich an (E-Mail-Code, Authenticator neu verbinden) und entsperrt mit Notfallblatt/Passphrase/Passkey.
+Automatischer Test: `e2e/export.e2e.ts`.
+
 ## Go-live
 Siehe `docs/Go-live.md` (Testdaten löschen mit `supabase/golive/1-testdaten-loeschen.sql`, Umstellung `main`, Konten, Einrichtung mit Melanie).

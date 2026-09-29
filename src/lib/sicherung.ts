@@ -7,7 +7,12 @@ import { aad, entschluessele, entschluesseleBytes, neuerZonenSchluessel, verschl
 import { ausBase64, utf8, zuBase64 } from './crypto/kodierung'
 import { supabaseBrowser } from './supabase/client'
 
-const sb = () => supabaseBrowser()
+import type { SupabaseClient } from '@supabase/supabase-js'
+
+// Standard: Browser-Client; der E2E-Test übergibt einen eigenen Client (Node)
+let client: SupabaseClient | null = null
+const sb = () => client ?? supabaseBrowser()
+export function mitClient(c: SupabaseClient | null) { client = c }
 const FORMAT = 'lsb-cockpit-export'
 const AAD_INHALT = 'lsb:export:v1:inhalt'
 
