@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>Passkey-Test · LSB Cockpit</title>
+<link rel="icon" href="brand/favicon-32.png">
+<link rel="stylesheet" href="brand/tokens.vars.css">
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="passkey-test.css">
+<script type="module" src="passkey-test.js"></script>
+</head>
+<body>
+<main class="pk">
+  <img src="brand/bildmarke.svg" alt="" width="58" height="44">
+  <h1>Passkey-Test</h1>
+  <p class="muted">Prüft, ob dieses Gerät die Protokolle künftig mit Windows Hello, Face ID oder Fingerabdruck entsperren kann – ohne Passphrase. Es werden keine Protokolle oder persönlichen Daten verwendet.</p>
+
+  <ol class="schritte">
+    <li>
+      <h2>1 · Gerät prüfen</h2>
+      <div id="pruefung" class="box">Wird geprüft …</div>
+    </li>
+    <li>
+      <h2>2 · Test-Passkey anlegen</h2>
+      <p class="small">Der Browser fragt nach Windows Hello (PIN, Fingerabdruck, Gesicht) bzw. am iPhone nach Face ID. Gespeichert wird ein Passkey „LSB Cockpit – Test“ für diese Adresse. Er kann später in den Passwort-Einstellungen gelöscht werden.</p>
+      <button class="btn cta" id="anlegen">Test-Passkey anlegen</button>
+      <div id="anlegen-ergebnis" class="box" hidden></div>
+    </li>
+    <li>
+      <h2>3 · Entsperren testen (zweimal)</h2>
+      <p class="small">Zweimal hintereinander entsperren. Nur wenn beide Male derselbe Schlüssel entsteht, funktioniert das Verfahren.</p>
+      <button class="btn primary" id="entsperren" disabled>Mit Passkey entsperren</button>
+      <div id="entsperren-ergebnis" class="box" hidden></div>
+    </li>
+    <li>
+      <h2>4 · Ergebnis an Jörgen schicken</h2>
+      <p class="small">Enthält nur technische Angaben (Browser, System, Testergebnis) – keine Namen, keine Schlüssel.</p>
+      <pre id="bericht" class="box">Noch kein Ergebnis.</pre>
+      <button class="btn ghost" id="kopieren">Ergebnis kopieren</button>
+    </li>
+  </ol>
+</main>
+</body>
+</html>
