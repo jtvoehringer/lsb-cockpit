@@ -3,10 +3,11 @@
 // Supabase erhält nur das daraus abgeleitete Anmelde-Geheimnis (Lösungsdesign 4.2).
 import { supabaseBrowser } from './supabase/client'
 import {
-  anmeldeGeheimnis, entpackeMaster, kekAusPrf, masterMitPassphrase, neuePasskeyParameter, schluesselbundEinrichten, schluesselbundOeffnen,
-  tresorAusMaster, verpacke, type KdfParameter, type SchluesselbundEintrag, type Tresorinhalt,
+  anmeldeGeheimnis, entpackeMaster, kekAusPrf, masterMitNotfallcode, masterMitPassphrase, neuePasskeyParameter, schluesselbundEinrichten,
+  schluesselbundErzeugen, schluesselbundOeffnen, tresorAusMaster, verpacke, type KdfParameter, type SchluesselbundEintrag, type Tresorinhalt,
 } from './crypto/kern'
-import { passkeyAnlegen, passkeyBestaetigen } from './passkey'
+import { zuBase64Url } from './crypto/kodierung'
+import { passkeyAnlegen, passkeyBestaetigen, type PasskeyZiel } from './passkey'
 
 export class AnmeldungFehlgeschlagen extends Error {
   constructor(meldung = 'E-Mail-Adresse oder Passphrase stimmen nicht.') { super(meldung) }
@@ -65,10 +66,9 @@ export async function rolle(): Promise<'beraterin' | 'support' | null> {
   return (data?.rolle as 'beraterin' | 'support' | undefined) ?? null
 }
 
-/** Support-Konto (ICP) einrichten: nur Anmelde-Geheimnis setzen – es gibt keinen Schlüsselbund und damit keinen Zugriff auf Inhalte */
-export async function supportEinrichten(email: string, passphrase: string) {
-  const { error } = await sb().auth.updateUser({ password: await anmeldeGeheimnis(passphrase, email) })
-  if (error) throw error
+/** Support-Konto (ICP) einrichten: kein Schlüsselbund (also kein Zugriff auf Inhalte); Anmeldung ab jetzt per E-Mail-Code. */
+export async function supportEinrichten() {
+  await passwortUnbrauchbarMachen()
 }
 
 // ---------- Support-Freigabe (durch die Beraterin, befristet) ----------
@@ -116,19 +116,52 @@ export async function ladePasskeys(): Promise<PasskeyEintrag[]> {
   return (data ?? []) as PasskeyEintrag[]
 }
 
-/** Dieses Gerät als Schlüssel hinzufügen. Die Passphrase beweist den Zugriff und öffnet den Master-Schlüssel zum Neu-Verpacken. */
-export async function passkeyEinrichten(passphrase: string, bezeichnung: string) {
+/** Womit der Zugriff bestätigt wird, bevor ein neues Gerät eine Kopie des Master-Schlüssels bekommt. */
+export type Nachweis = { art: 'passkey' } | { art: 'passphrase'; wert: string } | { art: 'notfall'; wert: string }
+
+/** Master-Schlüssel exportierbar entpacken – nur, um ihn für ein neues Gerät neu zu verpacken. */
+export async function masterFuerNeuesGeraet(n: Nachweis): Promise<CryptoKey> {
+  const bund = await ladeSchluesselbund()
+  if (n.art === 'passphrase') return masterMitPassphrase(bund, n.wert, true)
+  if (n.art === 'notfall') return masterMitNotfallcode(bund, n.wert, true)
+  return masterMitPasskey(await ladePasskeys(), true)
+}
+
+/** Passkey anlegen (dieses Gerät oder Handy per QR-Code) und den Master-Schlüssel dafür verpacken. */
+export async function passkeyEinrichten(master: CryptoKey, bezeichnung: string, ziel: PasskeyZiel = 'geraet') {
   const { data: { user } } = await sb().auth.getUser()
   if (!user?.email) throw new Error('Nicht angemeldet')
-  const master = await masterMitPassphrase(await ladeSchluesselbund(), passphrase, true)
   const vorhandene = await ladePasskeys()
-  const { credentialId, prf } = await passkeyAnlegen({ id: user.id, email: user.email }, vorhandene.map((p) => p.credential_id))
+  const { credentialId, prf } = await passkeyAnlegen({ id: user.id, email: user.email }, vorhandene.map((p) => p.credential_id), ziel)
   const kdf = neuePasskeyParameter()
   const verpackt = await verpacke(master, await kekAusPrf(prf, kdf))
-  const { error } = await sb().from('passkey_schluessel').insert({ credential_id: credentialId, bezeichnung: bezeichnung.trim().slice(0, 60) || 'Gerät', verpackt, kdf })
+  const name = bezeichnung.trim().slice(0, 60) || 'Gerät'
+  const { error } = await sb().from('passkey_schluessel').insert({ credential_id: credentialId, bezeichnung: name, verpackt, kdf })
   if (error) throw error
-  await protokolliere('passkey_eingerichtet', bezeichnung.trim().slice(0, 60))
+  await protokolliere('passkey_eingerichtet', name)
 }
+
+async function masterMitPasskey(liste: PasskeyEintrag[], exportierbar = false): Promise<CryptoKey> {
+  if (!liste.length) throw new Error('Auf diesem Konto ist noch kein Passkey eingerichtet.')
+  const { credentialId, prf } = await passkeyBestaetigen(liste.map((p) => p.credential_id))
+  const p = liste.find((x) => x.credential_id === credentialId)
+  if (!p) throw new Error('Unbekannter Passkey.')
+  try { return await entpackeMaster(p.verpackt, await kekAusPrf(prf, p.kdf), exportierbar) }
+  catch { throw new Error('Der Passkey passt nicht zum Schlüsselbund. Bitte mit dem Notfallblatt entsperren.') }
+}
+
+/** Tresor mit dem Wiederherstellungscode vom Notfallblatt öffnen. */
+export async function tresorOeffnenMitNotfallcode(code: string): Promise<Tresorinhalt> {
+  const bund = await ladeSchluesselbund()
+  const t = await tresorAusMaster(bund, await masterMitNotfallcode(bund, code))
+  await protokolliere('notfallcode_verwendet')
+  return t
+}
+
+/** Hat das Konto eine Passphrase? (bei Einrichtung mit Passkey nicht) */
+export const hatPassphrase = (bund: SchluesselbundEintrag[]) => bund.some((e) => e.art === 'master')
+/** Ist der Schlüsselbund eingerichtet? (Notfall-Kopie gibt es in jeder Variante) */
+export const hatSchluesselbund = (bund: SchluesselbundEintrag[]) => bund.some((e) => e.art === 'notfall')
 
 export async function passkeyEntfernen(p: PasskeyEintrag) {
   const { error } = await sb().from('passkey_schluessel').delete().eq('id', p.id)
@@ -138,14 +171,7 @@ export async function passkeyEntfernen(p: PasskeyEintrag) {
 
 /** Tresor mit einem Passkey öffnen (wirft PasskeyAbgebrochen, wenn abgebrochen). */
 export async function tresorOeffnenMitPasskey(passkeys?: PasskeyEintrag[]): Promise<Tresorinhalt> {
-  const liste = passkeys ?? await ladePasskeys()
-  if (!liste.length) throw new Error('Auf diesem Konto ist noch kein Passkey eingerichtet.')
-  const { credentialId, prf } = await passkeyBestaetigen(liste.map((p) => p.credential_id))
-  const p = liste.find((x) => x.credential_id === credentialId)
-  if (!p) throw new Error('Unbekannter Passkey.')
-  let master: CryptoKey
-  try { master = await entpackeMaster(p.verpackt, await kekAusPrf(prf, p.kdf)) }
-  catch { throw new Error('Der Passkey passt nicht zum Schlüsselbund. Bitte mit der Passphrase entsperren.') }
+  const master = await masterMitPasskey(passkeys ?? await ladePasskeys())
   return tresorAusMaster(await ladeSchluesselbund(), master)
 }
 
@@ -188,7 +214,7 @@ export async function totpAnlegen() {
  * Gibt den Wiederherstellungscode zurück – er wird nirgends gespeichert und nur einmal angezeigt.
  */
 export async function schluesselEinrichten(email: string, passphrase: string): Promise<string> {
-  if ((await ladeSchluesselbund()).some((e) => e.art === 'master')) throw new Error('Für dieses Konto ist bereits ein Schlüsselbund eingerichtet.')
+  if (hatSchluesselbund(await ladeSchluesselbund())) throw new Error('Für dieses Konto ist bereits ein Schlüsselbund eingerichtet.')
   const { data: { user } } = await sb().auth.getUser()
   if (!user) throw new Error('Nicht angemeldet')
 
@@ -199,6 +225,37 @@ export async function schluesselEinrichten(email: string, passphrase: string): P
   const { error: fehlerPasswort } = await sb().auth.updateUser({ password: await anmeldeGeheimnis(passphrase, email) })
   if (fehlerPasswort) throw fehlerPasswort
   return wiederherstellungscode
+}
+
+/**
+ * Einrichtung ohne Passphrase (Standard): zuerst den Passkey anlegen (bricht die Beraterin ab, entsteht nichts),
+ * dann Schlüssel erzeugen – Master verpackt für Passkey und Notfallblatt. Das Einrichtungscode-Passwort wird durch
+ * Zufall ersetzt; angemeldet wird ab jetzt per E-Mail-Code.
+ */
+export async function schluesselEinrichtenMitPasskey(bezeichnung: string): Promise<{ wiederherstellungscode: string; tresor: Tresorinhalt }> {
+  if (hatSchluesselbund(await ladeSchluesselbund())) throw new Error('Für dieses Konto ist bereits ein Schlüsselbund eingerichtet.')
+  const { data: { user } } = await sb().auth.getUser()
+  if (!user?.email) throw new Error('Nicht angemeldet')
+
+  const { credentialId, prf } = await passkeyAnlegen({ id: user.id, email: user.email }, [], 'geraet')
+  const { master, eintraege, wiederherstellungscode } = await schluesselbundErzeugen()
+  const kdf = neuePasskeyParameter()
+  const verpackt = await verpacke(master, await kekAusPrf(prf, kdf))
+
+  const { error: e1 } = await sb().from('schluesselbund').insert(eintraege.map((e) => ({ ...e, user_id: user.id })))
+  if (e1) throw e1
+  const name = bezeichnung.trim().slice(0, 60) || 'Gerät'
+  const { error: e2 } = await sb().from('passkey_schluessel').insert({ credential_id: credentialId, bezeichnung: name, verpackt, kdf })
+  if (e2) throw e2
+  await protokolliere('passkey_eingerichtet', name)
+  await passwortUnbrauchbarMachen()
+  return { wiederherstellungscode, tresor: await tresorAusMaster(eintraege, master) }
+}
+
+/** Anmeldung nur noch per E-Mail-Code: das Supabase-Passwort (Einrichtungscode) durch unbekannten Zufall ersetzen. */
+async function passwortUnbrauchbarMachen() {
+  const { error } = await sb().auth.updateUser({ password: zuBase64Url(crypto.getRandomValues(new Uint8Array(32))) })
+  if (error) throw error
 }
 
 export async function einrichtungAbschliessen() {

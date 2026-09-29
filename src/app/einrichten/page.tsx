@@ -1,14 +1,22 @@
 'use client'
 import { useRouter } from 'next/navigation'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { passkeyName } from '@/components/Bestaetigung'
 import { SchmalerRahmen } from '@/components/Rahmen'
 import brand from '@/config/brand.config'
-import { formatiereCode } from '@/lib/crypto/kern'
+import { formatiereCode, type Tresorinhalt } from '@/lib/crypto/kern'
 import { pruefePassphrase } from '@/lib/crypto/passphrase'
-import { anmelden, einrichtungAbschliessen, ladeSchluesselbund, rolle, schluesselEinrichten, supportEinrichten, totpAnlegen, totpBestaetigen, tresorOeffnen } from '@/lib/konto'
+import {
+  anmelden, einrichtungAbschliessen, hatSchluesselbund, ladeSchluesselbund, rolle, schluesselEinrichten, schluesselEinrichtenMitPasskey,
+  sicherheitsstufe, supportEinrichten, totpAnlegen, totpBestaetigen, tresorOeffnen, verifizierterTotpFaktor,
+} from '@/lib/konto'
+import { geraetVorschlag, PasskeyAbgebrochen, passkeyMoeglich } from '@/lib/passkey'
+import { supabaseBrowser } from '@/lib/supabase/client'
 import { useTresor } from '@/lib/tresor'
 
-type Schritt = 'code' | 'totp-bestehend' | 'passphrase' | 'totp-neu' | 'notfall'
+// Einrichtung (einmalig): E-Mail + Einrichtungscode von ICP → Authenticator-App → Windows Hello / Face ID → Notfallblatt.
+// Die Passphrase ist nur noch Ausweichweg für Geräte ohne Passkey-Unterstützung.
+type Schritt = 'code' | 'totp-bestehend' | 'totp-neu' | 'schutz' | 'passphrase' | 'notfall'
 
 export default function Einrichten() {
   const router = useRouter()
@@ -22,62 +30,81 @@ export default function Einrichten() {
   const [totp, setTotp] = useState<{ faktorId: string; qrCode: string; geheimnis: string } | null>(null)
   const [faktorId, setFaktorId] = useState<string | null>(null)
   const [totpCode, setTotpCode] = useState('')
+  const [geraet, setGeraet] = useState('')
+  const [passkeyOk, setPasskeyOk] = useState<boolean | null>(null)
   const [notfallcode, setNotfallcode] = useState('')
   const [verwahrt, setVerwahrt] = useState(false)
   const [arbeitet, setArbeitet] = useState<string | null>(null)
   const [fehler, setFehler] = useState('')
+  const schluessel = useRef<Tresorinhalt | null>(null)
   const pruefung = useMemo(() => pruefePassphrase(p1, email), [p1, email])
+
+  // Schon per E-Mail-Code angemeldet (von /anmelden hierher geleitet)? Dann ohne Einrichtungscode weiter.
+  useEffect(() => {
+    setGeraet(geraetVorschlag()); void passkeyMoeglich().then(setPasskeyOk)
+    void sicherheitsstufe().then(async ({ angemeldet, aal2 }) => {
+      if (!angemeldet) return
+      setEmail((await supabaseBrowser().auth.getUser()).data.user?.email ?? '')
+      if (aal2) { await nachTotp(); return }
+      const f = await verifizierterTotpFaktor()
+      if (f) { setFaktorId(f); setSchritt('totp-bestehend') } else { setTotp(await totpAnlegen()); setSchritt('totp-neu') }
+    })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   async function laufe(text: string, f: () => Promise<void>) {
     setFehler(''); setArbeitet(text)
-    try { await f() } catch (err) { setFehler((err as Error).message) } finally { setArbeitet(null) }
+    try { await f() } catch (err) {
+      setFehler(err instanceof PasskeyAbgebrochen ? 'Abgebrochen – bitte nochmals versuchen.' : (err as Error).message)
+    } finally { setArbeitet(null) }
+  }
+
+  /** Nach erfolgreichem TOTP (AAL2): Support ist fertig, Beraterin richtet den Schutz ein. */
+  async function nachTotp() {
+    if ((await rolle()) === 'support') { await supportEinrichten(); router.replace('/support'); return }
+    if (hatSchluesselbund(await ladeSchluesselbund())) { router.replace('/entsperren'); return }
+    setSchritt('schutz')
   }
 
   const mitCode = (e: React.FormEvent) => { e.preventDefault(); void laufe('Wird geprüft …', async () => {
     const { faktorId } = await anmelden(email, einrichtungscode.trim())
     setEinrichtungscode('')
-    if (faktorId) { setFaktorId(faktorId); setSchritt('totp-bestehend') } else setSchritt('passphrase')
+    if (faktorId) { setFaktorId(faktorId); setSchritt('totp-bestehend') } else { setTotp(await totpAnlegen()); setSchritt('totp-neu') }
   }) }
 
   const bestehendenTotpPruefen = (e: React.FormEvent) => { e.preventDefault(); void laufe('Wird geprüft …', async () => {
     await totpBestaetigen(faktorId!, totpCode); setTotpCode('')
-    if ((await ladeSchluesselbund()).some((s) => s.art === 'master')) { router.replace('/anmelden'); return }
-    setSchritt('passphrase')
+    await nachTotp()
   }) }
+
+  const neuenTotpBestaetigen = (e: React.FormEvent) => { e.preventDefault(); void laufe('Wird geprüft …', async () => {
+    await totpBestaetigen(totp!.faktorId, totpCode); setTotpCode('')
+    await nachTotp()
+  }) }
+
+  const mitPasskey = () => void laufe(`Bitte mit ${passkeyName()} bestätigen …`, async () => {
+    const { wiederherstellungscode, tresor: t } = await schluesselEinrichtenMitPasskey(geraet)
+    schluessel.current = t
+    setNotfallcode(wiederherstellungscode); setSchritt('notfall')
+  })
 
   const passphraseWaehlen = (e: React.FormEvent) => { e.preventDefault()
     if (!pruefung.ok) { setFehler(pruefung.hinweise.join(' ')); return }
     if (p1 !== p2) { setFehler('Die beiden Eingaben stimmen nicht überein.'); return }
     if (!verstanden) { setFehler('Bitte die Bestätigung ankreuzen.'); return }
-    void laufe('Authenticator wird vorbereitet …', async () => {
-      if (faktorId) { await schluesselErzeugen(); return } // TOTP ist schon eingerichtet und bestätigt
-      setTotp(await totpAnlegen()); setSchritt('totp-neu')
+    void laufe('Schlüssel werden erzeugt …', async () => {
+      setNotfallcode(await schluesselEinrichten(email, p1))
+      schluessel.current = await tresorOeffnen(p1)
+      setP1(''); setP2('')
+      setSchritt('notfall')
     })
   }
 
-  const neuenTotpBestaetigen = (e: React.FormEvent) => { e.preventDefault(); void laufe('Wird geprüft …', async () => {
-    await totpBestaetigen(totp!.faktorId, totpCode); setTotpCode('')
-    await schluesselErzeugen()
-  }) }
-
-  async function schluesselErzeugen() {
-    if ((await rolle()) === 'support') {
-      // Support-Konto: kein Schlüsselbund, kein Notfallblatt – nur Anmeldung
-      setArbeitet('Wird eingerichtet …')
-      await supportEinrichten(email, p1)
-      setP1(''); setP2('')
-      router.replace('/support')
-      return
-    }
-    setArbeitet('Schlüssel werden erzeugt …')
-    setNotfallcode(await schluesselEinrichten(email, p1))
-    setSchritt('notfall')
-  }
-
-  const abschliessen = () => void laufe('Tresor wird geöffnet …', async () => {
-    tresor.oeffnen(await tresorOeffnen(p1))
+  const abschliessen = () => void laufe('Wird abgeschlossen …', async () => {
+    if (!schluessel.current) throw new Error('Schlüssel fehlen – bitte Seite neu laden und entsperren.')
+    tresor.oeffnen(schluessel.current); schluessel.current = null
     await einrichtungAbschliessen()
-    setP1(''); setP2(''); setNotfallcode('')
+    setNotfallcode('')
     router.replace('/')
   })
 
@@ -100,11 +127,39 @@ export default function Einrichten() {
         </form>
       )}
 
+      {schritt === 'totp-neu' && totp && (
+        <form onSubmit={neuenTotpBestaetigen} className="space-y-5">
+          <p>Authenticator-App am Handy öffnen (z. B. Microsoft oder Google Authenticator), „Konto hinzufügen“ wählen und diesen QR-Code scannen:</p>
+          <div className="karte flex justify-center"><img src={totp.qrCode} alt="QR-Code für die Authenticator-App" width={200} height={200} /></div>
+          <details className="text-sm text-text-muted"><summary>QR-Code lässt sich nicht scannen?</summary><p className="mt-2">Schlüssel manuell eingeben: <span className="code text-base break-all">{totp.geheimnis}</span></p></details>
+          <label>Sechsstelliger Code aus der App<input inputMode="numeric" autoComplete="one-time-code" required value={totpCode} onChange={(e) => setTotpCode(e.target.value)} className="code" /></label>
+          <Fehler text={fehler} />
+          <button className="btn btn-cta w-full" disabled={!!arbeitet}>{arbeitet ?? 'Bestätigen'}</button>
+        </form>
+      )}
+
+      {schritt === 'schutz' && (
+        <div className="space-y-5">
+          <div className="hinweis space-y-2">
+            <p><b>So funktioniert der Schutz:</b> Alle Inhalte werden auf deinem Gerät verschlüsselt. Den Schlüssel sichert {passkeyName()} – Fingerabdruck, Gesicht oder Geräte-PIN. Niemand sonst kann die Daten lesen, auch ICP nicht.</p>
+            <p>Gleich danach bekommst du ein <b>Notfallblatt</b>. Es ist der einzige Weg zurück, falls alle Geräte verloren gehen – bitte ausdrucken und sicher verwahren.</p>
+          </div>
+          {passkeyOk === false && <p className="hinweis text-sm">Dieser Browser unterstützt keine Passkeys. Bitte die Passphrase verwenden – oder die Einrichtung in Chrome, Edge oder Safari machen.</p>}
+          {passkeyOk && (
+            <>
+              <label>Bezeichnung dieses Geräts<input required maxLength={60} value={geraet} onChange={(e) => setGeraet(e.target.value)} /></label>
+              <Fehler text={fehler} />
+              <button type="button" className="btn btn-cta w-full" disabled={!!arbeitet} onClick={mitPasskey}>{arbeitet ?? `Mit ${passkeyName()} einrichten`}</button>
+            </>
+          )}
+          <button type="button" className="text-sm text-text-muted underline" onClick={() => { setFehler(''); setSchritt('passphrase') }}>Stattdessen eine Passphrase verwenden</button>
+        </div>
+      )}
+
       {schritt === 'passphrase' && (
         <form onSubmit={passphraseWaehlen} className="space-y-5">
           <div className="hinweis space-y-2">
-            <p><b>So funktioniert der Schutz:</b> Alle Inhalte werden auf diesem Gerät mit einem Schlüssel aus deiner Passphrase verschlüsselt. Niemand sonst kann sie lesen – auch ICP, Supabase und Vercel nicht.</p>
-            <p>Deshalb: <b>Gehen Passphrase und Notfallblatt verloren, sind die Daten verloren.</b> Ein Zurücksetzen per E-Mail gibt es nicht.</p>
+            <p>Alle Inhalte werden mit einem Schlüssel aus deiner Passphrase verschlüsselt. <b>Gehen Passphrase und Notfallblatt verloren, sind die Daten verloren.</b></p>
           </div>
           <label>Passphrase<input type="password" autoComplete="new-password" required value={p1} onChange={(e) => setP1(e.target.value)} /></label>
           <p className="text-sm text-text-muted">Mindestens 16 Zeichen oder 5 Wörter – z. B. fünf zufällige Wörter. Aufschreiben und sicher verwahren.</p>
@@ -113,17 +168,7 @@ export default function Einrichten() {
           <label className="flex items-start gap-3 text-sm font-normal text-text"><input type="checkbox" checked={verstanden} onChange={(e) => setVerstanden(e.target.checked)} className="mt-0.5" /> Ich habe verstanden: Ohne Passphrase und ohne Notfallblatt sind die Daten nicht wiederherstellbar.</label>
           <Fehler text={fehler} />
           <button className="btn btn-cta w-full" disabled={!!arbeitet}>{arbeitet ?? 'Weiter'}</button>
-        </form>
-      )}
-
-      {schritt === 'totp-neu' && totp && (
-        <form onSubmit={neuenTotpBestaetigen} className="space-y-5">
-          <p>Authenticator-App öffnen (z. B. Microsoft Authenticator oder Google Authenticator), „Konto hinzufügen“ wählen und diesen QR-Code scannen:</p>
-          <div className="karte flex justify-center"><img src={totp.qrCode} alt="QR-Code für die Authenticator-App" width={200} height={200} /></div>
-          <details className="text-sm text-text-muted"><summary>QR-Code lässt sich nicht scannen?</summary><p className="mt-2">Schlüssel manuell eingeben: <span className="code text-base break-all">{totp.geheimnis}</span></p></details>
-          <label>Sechsstelliger Code aus der App<input inputMode="numeric" autoComplete="one-time-code" required value={totpCode} onChange={(e) => setTotpCode(e.target.value)} className="code" /></label>
-          <Fehler text={fehler} />
-          <button className="btn btn-cta w-full" disabled={!!arbeitet}>{arbeitet ?? 'Bestätigen'}</button>
+          {passkeyOk && <button type="button" className="text-sm text-text-muted underline" onClick={() => { setFehler(''); setSchritt('schutz') }}>Zurück zu {passkeyName()}</button>}
         </form>
       )}
 
@@ -134,7 +179,7 @@ export default function Einrichten() {
             <p className="mt-3 text-sm">Wiederherstellungscode für <b>{email}</b>:</p>
             <p className="code mt-2 break-all text-heading">{formatiereCode(notfallcode)}</p>
             <p className="mt-4 text-sm text-text-muted">Adresse: {typeof location !== 'undefined' ? location.origin : ''} · Erstellt am {new Date().toLocaleDateString('de-AT')}</p>
-            <p className="mt-2 text-sm text-text-muted">Mit diesem Code lässt sich bei vergessener Passphrase eine neue setzen (zusammen mit ICP). Ausdrucken, nicht digital speichern, versiegelt bei der Vertrauensperson oder im Safe verwahren.</p>
+            <p className="mt-2 text-sm text-text-muted">Mit diesem Code lässt sich das Cockpit auf einem neuen Gerät entsperren, wenn kein eingerichtetes Gerät mehr da ist. Ausdrucken, nicht digital speichern, versiegelt bei der Vertrauensperson oder im Safe verwahren.</p>
           </div>
           <button type="button" className="btn btn-ghost nicht-drucken w-full" onClick={() => print()}>Notfallblatt drucken</button>
           <label className="nicht-drucken flex items-start gap-3 text-sm font-normal text-text"><input type="checkbox" checked={verwahrt} onChange={(e) => setVerwahrt(e.target.checked)} className="mt-0.5" /> Notfallblatt ist ausgedruckt und wird sicher verwahrt. Der Code wird nicht noch einmal angezeigt.</label>
@@ -149,8 +194,9 @@ export default function Einrichten() {
 const UNTERTITEL: Record<Schritt, string> = {
   code: 'Mit der E-Mail-Adresse und dem Einrichtungscode von ICP.',
   'totp-bestehend': 'Code aus der Authenticator-App.',
-  passphrase: 'Passphrase wählen – sie schützt alle Daten.',
   'totp-neu': 'Zweiter Faktor: Authenticator-App verbinden.',
+  schutz: 'Schlüssel mit diesem Gerät sichern.',
+  passphrase: 'Passphrase wählen – sie schützt alle Daten.',
   notfall: 'Notfallblatt sichern.',
 }
 

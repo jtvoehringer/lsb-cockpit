@@ -5,7 +5,7 @@ import { Bestaetigung } from '@/components/Bestaetigung'
 import { SchmalerRahmen } from '@/components/Rahmen'
 import { FalschePassphrase } from '@/lib/crypto/kern'
 import {
-  anmeldenMitPassphrase, emailCodeAnfordern, emailCodeBestaetigen, ladeSchluesselbund, protokolliere, rolle,
+  anmeldenMitPassphrase, emailCodeAnfordern, emailCodeBestaetigen, hatSchluesselbund, ladeSchluesselbund, protokolliere, rolle,
   sicherheitsstufe, totpBestaetigen, tresorOeffnen, verifizierterTotpFaktor,
 } from '@/lib/konto'
 import { useTresor } from '@/lib/tresor'
@@ -79,7 +79,7 @@ export default function Anmelden() {
     try {
       await totpBestaetigen(faktorId!, code)
       if ((await rolle()) === 'support') { setPassphrase(''); router.replace('/support'); return }
-      if (!(await ladeSchluesselbund()).some((s) => s.art === 'master')) { router.replace('/einrichten'); return }
+      if (!hatSchluesselbund(await ladeSchluesselbund())) { router.replace('/einrichten'); return }
       if (passphrase) {
         // Mit Passphrase angemeldet: gleich damit entsperren
         setArbeitet('Tresor wird geöffnet …')

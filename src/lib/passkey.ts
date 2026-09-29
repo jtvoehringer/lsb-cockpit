@@ -28,11 +28,15 @@ export async function passkeyMoeglich(): Promise<boolean> {
 function fehler(e: unknown): never {
   if (e instanceof DOMException && (e.name === 'NotAllowedError' || e.name === 'AbortError')) throw new PasskeyAbgebrochen()
   if (e instanceof DOMException && e.name === 'InvalidStateError') throw new Error('Auf diesem Gerät ist bereits ein Passkey für das Cockpit eingerichtet.')
+  if (e instanceof DOMException && e.name === 'NotSupportedError') throw new Error('Dieses Gerät unterstützt keine Passkeys.')
   throw e
 }
 
 /** Neuen Passkey anlegen und die PRF-Bytes holen (falls nicht gleich geliefert: sofort eine Bestätigung nachschieben). */
-export async function passkeyAnlegen(benutzer: { id: string; email: string }, vorhandene: string[]): Promise<{ credentialId: string; prf: ArrayBuffer }> {
+export type PasskeyZiel = 'geraet' | 'handy'
+
+/** ziel „geraet“: Windows Hello / Face ID dieses Geräts; „handy“: ein anderes Gerät per QR-Code (z. B. das iPhone vom Laptop aus). */
+export async function passkeyAnlegen(benutzer: { id: string; email: string }, vorhandene: string[], ziel: PasskeyZiel = 'geraet'): Promise<{ credentialId: string; prf: ArrayBuffer }> {
   const eingabe = await prfEingabe()
   let cred: PublicKeyCredential
   try {
@@ -42,10 +46,11 @@ export async function passkeyAnlegen(benutzer: { id: string; email: string }, vo
         user: { id: utf8(benutzer.id), name: benutzer.email, displayName: benutzer.email },
         challenge: crypto.getRandomValues(new Uint8Array(32)),
         pubKeyCredParams: [{ type: 'public-key', alg: -7 }, { type: 'public-key', alg: -257 }],
-        authenticatorSelection: { residentKey: 'preferred', userVerification: 'required' },
+        authenticatorSelection: { residentKey: 'required', userVerification: 'required', authenticatorAttachment: ziel === 'geraet' ? 'platform' : 'cross-platform' },
         excludeCredentials: vorhandene.map((id) => ({ type: 'public-key' as const, id: ausBase64Url(id) })),
-        timeout: 120_000,
+        timeout: 180_000,
         extensions: { prf: { eval: { first: eingabe } } } as AuthenticationExtensionsClientInputs,
+        ...({ hints: [ziel === 'geraet' ? 'client-device' : 'hybrid'] } as object),
       },
     })) as PublicKeyCredential
   } catch (e) { fehler(e) }

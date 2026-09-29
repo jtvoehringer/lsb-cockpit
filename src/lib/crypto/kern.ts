@@ -157,21 +157,40 @@ export async function entschluesseleBytes(schluessel: CryptoKey, daten: Uint8Arr
 
 export type SchluesselbundEintrag = { art: 'master' | 'notfall' | Zone; version: number; verpackt: string; kdf: KdfParameter | null }
 
-/** Erzeugt Master- und Zonen-Schlüssel, verpackt sie für Passphrase und Wiederherstellungscode. */
-export async function schluesselbundEinrichten(passphrase: string, iterationen = PBKDF2_ITERATIONEN) {
+/**
+ * Erzeugt Master- und Zonen-Schlüssel und verpackt den Master für den Wiederherstellungscode (Notfallblatt).
+ * Gibt den (exportierbaren) Master zurück, damit er gleich für einen Passkey oder eine Passphrase verpackt werden kann.
+ */
+export async function schluesselbundErzeugen() {
   const master = await neuerMasterSchluessel()
-  const kdf = neueKdfParameter(iterationen)
-  const kek = await kekAusPassphrase(passphrase, kdf)
   const code = neuerWiederherstellungscode()
   const notfallKdf = neueNotfallParameter()
-  const kekR = await kekAusCode(code, notfallKdf)
-
   const eintraege: SchluesselbundEintrag[] = [
-    { art: 'master', version: 1, verpackt: await verpacke(master, kek), kdf },
-    { art: 'notfall', version: 1, verpackt: await verpacke(master, kekR), kdf: notfallKdf },
+    { art: 'notfall', version: 1, verpackt: await verpacke(master, await kekAusCode(code, notfallKdf)), kdf: notfallKdf },
   ]
   for (const zone of ZONEN) eintraege.push({ art: zone, version: 1, verpackt: await verpacke(await neuerZonenSchluessel(), master), kdf: null })
-  return { eintraege, wiederherstellungscode: code }
+  return { master, eintraege, wiederherstellungscode: code }
+}
+
+/** Wie schluesselbundErzeugen, zusätzlich mit einer Kopie des Masters für die Passphrase. */
+export async function schluesselbundEinrichten(passphrase: string, iterationen = PBKDF2_ITERATIONEN) {
+  const { master, eintraege, wiederherstellungscode } = await schluesselbundErzeugen()
+  const kdf = neueKdfParameter(iterationen)
+  eintraege.unshift({ art: 'master', version: 1, verpackt: await verpacke(master, await kekAusPassphrase(passphrase, kdf)), kdf })
+  return { eintraege, wiederherstellungscode }
+}
+
+/** Master-Schlüssel mit dem Wiederherstellungscode vom Notfallblatt entpacken. */
+export async function masterMitNotfallcode(eintraege: SchluesselbundEintrag[], code: string, exportierbar = false): Promise<CryptoKey> {
+  const n = aktuellsteEintraege(eintraege).notfall
+  if (!n?.kdf) throw new Error('Kein Notfall-Schlüssel eingerichtet')
+  let kek: CryptoKey
+  try { kek = await kekAusCode(code, n.kdf) } catch { throw new FalscherNotfallcode() }
+  try { return await entpackeMaster(n.verpackt, kek, exportierbar) } catch { throw new FalscherNotfallcode() }
+}
+
+export class FalscherNotfallcode extends Error {
+  constructor() { super('Der Wiederherstellungscode stimmt nicht.') }
 }
 
 export type Tresorinhalt = Record<Zone, CryptoKey>

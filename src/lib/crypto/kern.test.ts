@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   aad, anmeldeGeheimnis, entpackeMaster, entschluessele, FalschePassphrase, formatiereCode, kekAusCode,
-  kekAusPassphrase, kekAusPrf, masterMitPassphrase, neueKdfParameter, neuePasskeyParameter, neuerZonenSchluessel,
+  FalscherNotfallcode, kekAusPassphrase, kekAusPrf, masterMitNotfallcode, masterMitPassphrase, schluesselbundErzeugen, neueKdfParameter, neuePasskeyParameter, neuerZonenSchluessel,
   schluesselbundEinrichten, schluesselbundOeffnen, tresorAusMaster, verpacke, verschluessele, type SchluesselbundEintrag,
 } from './kern'
 import { ausBase64, ausCrockford, ausHex, utf8, zuBase64, zuCrockford, zuHex } from './kodierung'
@@ -185,6 +185,21 @@ describe('Schlüsselbund', () => {
     await expect(kekAusPrf(prf.slice(0, 16), kdf)).rejects.toThrow()
     // Ohne „exportierbar“ lässt sich der Master nicht neu verpacken
     await expect(verpacke(await masterMitPassphrase(eintraege, P), await kekAusPrf(prf, kdf))).rejects.toThrow()
+  })
+
+  it('Einrichtung ohne Passphrase: nur Notfall + Passkey; Notfallcode öffnet, falscher Code nicht', async () => {
+    const { master, eintraege, wiederherstellungscode } = await schluesselbundErzeugen()
+    expect(eintraege.map((e) => e.art).sort()).toEqual(['notfall', 'zone_a', 'zone_b', 'zone_c'])
+    const prf = globalThis.crypto.getRandomValues(new Uint8Array(32))
+    const kdf = neuePasskeyParameter()
+    const verpackt = await verpacke(master, await kekAusPrf(prf, kdf))
+    const z = aad('akte', 'q', 'inhalt')
+    const c = await verschluessele((await tresorAusMaster(eintraege, await entpackeMaster(verpackt, await kekAusPrf(prf, kdf)))).zone_b, 'ohne Passphrase', z)
+    const t = await tresorAusMaster(eintraege, await masterMitNotfallcode(eintraege, formatiereCode(wiederherstellungscode)))
+    expect(await entschluessele(t.zone_b, c, z)).toBe('ohne Passphrase')
+    await expect(masterMitNotfallcode(eintraege, zuCrockford(globalThis.crypto.getRandomValues(new Uint8Array(16))))).rejects.toBeInstanceOf(FalscherNotfallcode)
+    await expect(masterMitNotfallcode(eintraege, 'zu kurz')).rejects.toBeInstanceOf(FalscherNotfallcode)
+    await expect(masterMitPassphrase(eintraege, 'egal')).rejects.toThrow('Kein Master-Schlüssel')
   })
 
   it('Produktions-Iterationen: 600.000', async () => {
