@@ -119,6 +119,23 @@ export async function entschluessele(schluessel: CryptoKey, chiffre: string, zus
   return new TextDecoder().decode(pt)
 }
 
+/** Dateien (z. B. Belege) – gleiches Format v1, aber als Bytes statt Base64 */
+export async function verschluesseleBytes(schluessel: CryptoKey, daten: ArrayBuffer | Uint8Array<ArrayBuffer>, zusatz: string): Promise<Uint8Array<ArrayBuffer>> {
+  const iv = zufall(12)
+  const ct = new Uint8Array(await subtle.encrypt({ name: 'AES-GCM', iv, additionalData: utf8(zusatz) }, schluessel, daten))
+  const out = new Uint8Array(1 + 12 + ct.length)
+  out[0] = FORMAT_V1
+  out.set(iv, 1)
+  out.set(ct, 13)
+  return out
+}
+
+export async function entschluesseleBytes(schluessel: CryptoKey, daten: Uint8Array<ArrayBuffer>, zusatz: string): Promise<ArrayBuffer> {
+  if (daten.length < 1 + 12 + 16) throw new Error('Chiffretext zu kurz')
+  if (daten[0] !== FORMAT_V1) throw new Error(`Unbekannte Formatversion ${daten[0]}`)
+  return subtle.decrypt({ name: 'AES-GCM', iv: daten.slice(1, 13), additionalData: utf8(zusatz) }, schluessel, daten.slice(13))
+}
+
 // ---------- Einrichtung als Ganzes ----------
 
 export type SchluesselbundEintrag = { art: 'master' | 'notfall' | Zone; version: number; verpackt: string; kdf: KdfParameter | null }

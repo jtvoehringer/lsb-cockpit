@@ -104,6 +104,14 @@ describe('Datensätze verschlüsseln', () => {
     const version = roh.slice(); version[0] = 2
     await expect(entschluessele(k, zuBase64(version), z)).rejects.toThrow('Formatversion')
   })
+  it('Dateien (Bytes): Round-Trip, falsche Zuordnung wird abgelehnt', async () => {
+    const { verschluesseleBytes, entschluesseleBytes } = await import('./kern')
+    const k = await neuerZonenSchluessel()
+    const daten = globalThis.crypto.getRandomValues(new Uint8Array(50_000))
+    const c = await verschluesseleBytes(k, daten, aad('fin_beleg', 'b1', 'datei'))
+    expect(new Uint8Array(await entschluesseleBytes(k, c, aad('fin_beleg', 'b1', 'datei')))).toEqual(daten)
+    await expect(entschluesseleBytes(k, c, aad('fin_beleg', 'b2', 'datei'))).rejects.toThrow()
+  })
   it('AAD-Angaben werden geprüft', () => {
     expect(() => aad('Tabelle; drop', '1', 'f')).toThrow()
     expect(() => aad('t', '', 'f')).toThrow()

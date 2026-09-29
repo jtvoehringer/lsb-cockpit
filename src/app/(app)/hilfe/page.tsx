@@ -36,6 +36,14 @@ const BEREICHE: { titel: string; fragen: Frage[] }[] = [
     ],
   },
   {
+    titel: 'Finanzen',
+    fragen: [
+      { f: 'Was kann der Bereich „Finanzen“?', a: ['Eine einfache Einnahmen-Ausgaben-Rechnung für Kleinunternehmerinnen (Beträge ohne Umsatzsteuer): Einnahmen und Ausgaben mit Kategorie erfassen, Belege anhängen, Monats- und Jahresübersicht, CSV für die Steuerberatung.'] },
+      { f: 'Was ist dabei verschlüsselt?', a: ['Beschreibungen und Belege (Dateien samt Dateinamen) – dort können Namen von Klient:innen stehen. Betrag, Datum, Kategorie und Zahlungsart sind nicht verschlüsselt, damit die Summen berechnet werden können; sie enthalten keine Namen.', 'Tipp: In der Beschreibung von Honoraren die Chiffre statt des Namens verwenden.'] },
+      { f: 'Was ist die E1a-Kennzahl bei den Kategorien?', a: ['Die Beilage E1a zur Einkommensteuererklärung fasst Einnahmen und Ausgaben in Kennzahlen zusammen. Die Zuordnung der Kategorien am besten einmal mit der Steuerberatung festlegen und unter „Kategorien“ eintragen – dann erscheint sie in der Übersicht und im CSV.'] },
+    ],
+  },
+  {
     titel: 'Hilfe und Kontakt',
     fragen: [
       { f: 'Etwas funktioniert nicht – was tun?', a: ['Bitte ICP kontaktieren und beschreiben, was du gemacht hast und was angezeigt wurde. Bitte keine Protokollinhalte oder Namen mitschicken – ein Bildschirmfoto der Fehlermeldung genügt.', 'Unter „Schutz & Audit“ siehst du die installierte Version und die letzten Ereignisse.'] },
