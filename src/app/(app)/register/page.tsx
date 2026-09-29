@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Bestaetigung } from '@/components/Bestaetigung'
 import { AuskunftAnsicht } from '@/components/AuskunftAnsicht'
 import { StammdatenPanel } from '@/components/StammdatenPanel'
+import { TeilnahmeAnsicht } from '@/components/TeilnahmeAnsicht'
 import { datum } from '@/lib/format'
 import { protokolliere } from '@/lib/konto'
 import { aktualisiereRegister, ladeAkten, ladeRegister, ladeSitzungen, neueAkte, neueSitzung, type Akte, type RegisterInhalt } from '@/lib/protokolle/daten'
@@ -26,6 +27,7 @@ export default function Register() {
   const [bearbeiten, setBearbeiten] = useState<Zeile | null>(null)
   const [stamm, setStamm] = useState<Zeile | null>(null)
   const [auskunft, setAuskunft] = useState<string | null>(null)
+  const [teilnahme, setTeilnahme] = useState<Zeile | null>(null)
   const [neu, setNeu] = useState({ name: '', notiz: '' })
   const aktivitaet = useRef(Date.now())
 
@@ -85,6 +87,7 @@ export default function Register() {
   )
 
   if (auskunft) return <AuskunftAnsicht akteId={auskunft} schliessen={() => setAuskunft(null)} />
+  if (teilnahme) return <TeilnahmeAnsicht akteId={teilnahme.akte_id} name={teilnahme.name ?? ''} chiffre={teilnahme.chiffre} schliessen={() => setTeilnahme(null)} />
 
   const q = suche.trim().toLowerCase()
   const gefiltert = zeilen.filter((z) => !q || [z.chiffre, z.name, z.kuerzel_alt, z.notiz].some((w) => w?.toLowerCase().includes(q)))
@@ -137,7 +140,7 @@ export default function Register() {
                 <td className="px-4 text-text-muted">{[z.notiz, z.kuerzel_alt && `altes Kürzel ${z.kuerzel_alt}`].filter(Boolean).join(' · ')}</td>
                 <td className="px-4 tabular-nums">{z.akte?.einwilligung_am ? datum(z.akte.einwilligung_am) : <span className="font-medium text-accent-strong">fehlt</span>}</td>
                 <td className="px-4 tabular-nums">{z.letzteSitzung ? datum(z.letzteSitzung) : '–'}</td>
-                <td className="whitespace-nowrap px-4"><button className="btn btn-ghost px-3 py-1 text-xs" onClick={() => setBearbeiten(z)}>Bearbeiten</button> <button className="btn btn-ghost px-3 py-1 text-xs" onClick={() => { setStamm(z); scrollTo({ top: 0, behavior: 'smooth' }) }}>Stammdaten</button> <button className="btn btn-ghost px-3 py-1 text-xs" onClick={() => setAuskunft(z.akte_id)}>Auskunft</button> <Link className="text-xs" href={`/protokolle?chiffre=${encodeURIComponent(z.chiffre)}`}>Protokolle</Link></td>
+                <td className="whitespace-nowrap px-4"><button className="btn btn-ghost px-3 py-1 text-xs" onClick={() => setBearbeiten(z)}>Bearbeiten</button> <button className="btn btn-ghost px-3 py-1 text-xs" onClick={() => { setStamm(z); scrollTo({ top: 0, behavior: 'smooth' }) }}>Stammdaten</button> <button className="btn btn-ghost px-3 py-1 text-xs" onClick={() => setAuskunft(z.akte_id)}>Auskunft</button> <button className="btn btn-ghost px-3 py-1 text-xs" onClick={() => setTeilnahme(z)}>Bestätigung</button> <Link className="text-xs" href={`/protokolle?chiffre=${encodeURIComponent(z.chiffre)}`}>Protokolle</Link></td>
               </tr>
             ))}
           </tbody>
