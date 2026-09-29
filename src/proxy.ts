@@ -13,7 +13,7 @@ function csp(nonce: string) {
     `style-src 'self'${dev ? " 'unsafe-inline'" : ` 'nonce-${nonce}'`}`,
     "img-src 'self' data: blob:",
     "font-src 'self'",
-    `connect-src 'self' ${supabase} ${supabase.replace('https://', 'wss://')}`,
+    `connect-src 'self' ${supabase} ${supabase.replace('https://', 'wss://')}${dev ? ' ws://localhost:*' : ''}`,
     "worker-src 'self' blob:",
     "object-src 'none'",
     "base-uri 'none'",
@@ -58,5 +58,5 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: [{ source: '/((?!_next/static|_next/image|favicon.ico|apple-icon.png|brand/).*)', missing: [{ type: 'header', key: 'next-router-prefetch' }] }],
+  matcher: [{ source: '/((?!_next/static|_next/image|favicon.ico|apple-icon.png|brand/|asr/).*)', missing: [{ type: 'header', key: 'next-router-prefetch' }] }],
 }

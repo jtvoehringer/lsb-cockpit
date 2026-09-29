@@ -21,7 +21,12 @@ const nextConfig: NextConfig = {
     return [
       { source: '/:path*', headers: sicherheitsHeader },
       // Anwendungsseiten nie zwischenspeichern
-      { source: '/((?!_next/static|_next/image|favicon.ico|brand/).*)', headers: [{ key: 'Cache-Control', value: 'no-store' }] },
+      { source: '/((?!_next/static|_next/image|favicon.ico|brand/|asr/).*)', headers: [{ key: 'Cache-Control', value: 'no-store' }] },
+      // Sprach-Worker: darf Programm-/Modelldateien von jsDelivr und Hugging Face laden, sonst nichts (kein Zugriff auf Supabase)
+      {
+        source: '/asr/:path*',
+        headers: [{ key: 'Content-Security-Policy', value: "default-src 'none'; script-src 'self' 'wasm-unsafe-eval' blob: https://cdn.jsdelivr.net; connect-src 'self' https://huggingface.co https://*.huggingface.co https://*.hf.co https://cdn.jsdelivr.net blob: data:" }],
+      },
     ]
   },
 }

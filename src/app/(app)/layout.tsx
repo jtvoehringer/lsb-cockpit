@@ -15,7 +15,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   useEffect(() => { if (!tresor.offen) router.replace('/entsperren') }, [tresor.offen, router])
   if (!tresor.offen) return null
 
-  const nav = [{ href: '/', text: 'Übersicht' }, { href: '/schutz', text: 'Schutz & Audit' }]
+  const nav = [
+    { href: '/', text: 'Übersicht' }, { href: '/protokolle', text: 'Protokolle' }, { href: '/nachweis', text: 'Nachweis' },
+    { href: '/uebernahme', text: 'Übernahme' }, { href: '/schutz', text: 'Schutz & Audit' },
+  ]
   return (
     <div className="min-h-screen">
       <header className="nicht-drucken border-b border-border bg-surface">
@@ -26,7 +29,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           </Link>
           <nav className="flex flex-wrap items-center gap-1 text-sm">
             {nav.map((n) => (
-              <Link key={n.href} href={n.href} className={`rounded-full px-3 py-1.5 no-underline ${pfad === n.href ? 'bg-sand text-heading' : 'text-text-muted hover:bg-sand'}`}>{n.text}</Link>
+              <Link key={n.href} href={n.href} className={`rounded-full px-3 py-1.5 no-underline ${(n.href === '/' ? pfad === '/' : pfad.startsWith(n.href)) ? 'bg-sand text-heading' : 'text-text-muted hover:bg-sand'}`}>{n.text}</Link>
             ))}
             <button className="btn btn-ghost ml-2 px-3 py-1.5 text-sm" onClick={async () => { await protokolliere('gesperrt'); tresor.sperren() }}>Sperren</button>
             <button className="btn btn-ghost px-3 py-1.5 text-sm" onClick={async () => { await protokolliere('abmeldung'); tresor.sperren(); await abmelden(); router.replace('/anmelden') }}>Abmelden</button>

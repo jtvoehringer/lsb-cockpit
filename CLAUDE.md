@@ -7,6 +7,9 @@
 - Tresor (`src/lib/tresor.tsx`): entpackte Schlüssel nur im Arbeitsspeicher, Sperre nach 10 Min. Seiten unter `(app)` nur mit offenem Tresor.
 - Supabase-Projekt `lsb-cockpit` (ref `mndfkacmmjhvkhvxgbkz`, eu-central-1). „Automatically expose new tables“ ist AUS → jede neue Tabelle braucht in der Migration RLS **und** ausdrückliche GRANTs. RLS-Hilfsfunktionen im nicht freigegebenen Schema `privat` (`privat.ist_aal2()`, `privat.meine_praxis()`); Datenzugriff nur mit AAL2.
 - Migrationen: `supabase/migrations/<version>_<name>.sql`, Version = Remote-Version aus `list_migrations` (per Supabase-MCP `apply_migration`, danach Datei exakt so speichern). Danach `get_advisors` (security + performance).
+- Protokoll-Modul (29.09.2026): `akte` (Chiffre K-JJ-NNNN-XX, Testpraxis „T-“), `sitzung` (Klartext-Metadaten, Entwurf in `entwurf_enc`), `protokoll_version` (nur anhängen, Inhalt K_B), `register_eintrag` (Zone C, K_C; altes Prototyp-Kürzel als `kuerzel_alt`). Logik in `src/lib/protokolle/`, Übernahme aus dem Prototyp über `herkunft` (idempotent). Nachweisliste nur aus Metadaten.
+- Diktat: `public/asr/` (Whisper-Worker, eigene CSP in next.config.ts, vom Proxy ausgenommen), `src/lib/diktat.ts`, `src/components/DiktatFeld.tsx`. Ton wird nie gespeichert.
+- Lokal starten: Windows blockiert die native Next-SWC (Application Control) → `next dev --webpack` (siehe LSB/.claude/launch.json „cockpit“).
 - Kein Service-Role-Schlüssel in Vercel oder im Code. Konten legt ICP lokal mit `scripts/konto-anlegen.mjs` an.
 - Tests: `npm test` (Krypto-Kern, läuft im Build – Fehler = kein Deployment). `npx vitest run --config vitest.e2e.config.ts` mit E2E_EMAIL/E2E_EINRICHTUNGSCODE nur gegen das fiktive Testkonto `test-beraterin@lsb-cockpit.invalid` (vor Go-live löschen).
 - Branches: `main` = Produktion (derzeit der Diktat-Prototyp, Melanie arbeitet damit!). Cockpit-Entwicklung auf `cockpit` (Vercel-Preview, geschützt). Umstellung erst nach E-07 (externe Prüfung).
