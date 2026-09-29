@@ -108,7 +108,10 @@ export default function Anmelden() {
           <label>E-Mail-Adresse<input type="email" autoComplete="username" required autoFocus value={email} onChange={(e) => setEmail(e.target.value)} /></label>
           <p className="fehler" role="alert">{fehler}</p>
           {knopf('Code zuschicken')}
-          {link('Stattdessen mit Passphrase anmelden', 'passphrase')}
+          <div className="flex flex-wrap justify-between gap-2">
+            {link('Stattdessen mit Passphrase anmelden', 'passphrase')}
+            <a href="/einrichten" className="text-sm text-text-muted underline">Erstmals hier? Konto einrichten</a>
+          </div>
         </form>
       )}
 
