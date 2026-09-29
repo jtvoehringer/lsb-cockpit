@@ -135,7 +135,7 @@ export default function Register() {
               </tr>
             ) : (
               <tr key={z.id} className="border-t border-border">
-                <td className="px-4 py-3 tabular-nums">{z.chiffre}</td>
+                <td className="whitespace-nowrap px-4 py-3 tabular-nums">{z.chiffre}</td>
                 <td className="px-4">{z.name || <span className="text-text-subtle">– noch kein Name –</span>}</td>
                 <td className="px-4 text-text-muted">{[z.notiz, z.kuerzel_alt && `altes Kürzel ${z.kuerzel_alt}`].filter(Boolean).join(' · ')}</td>
                 <td className="px-4 tabular-nums">{z.akte?.einwilligung_am ? datum(z.akte.einwilligung_am) : <span className="font-medium text-accent-strong">fehlt</span>}</td>

@@ -86,7 +86,7 @@ export default function Fristen() {
     const l = letzte.get(a.id)
     return (
       <tr key={a.id} className="border-t border-border">
-        <td className="px-4 py-2 tabular-nums">{a.chiffre}</td>
+        <td className="whitespace-nowrap px-4 py-2 tabular-nums">{a.chiffre}</td>
         <td className="px-4 tabular-nums">{l ? `${l.anzahl} · zuletzt ${datum(l.datum)}` : '–'}</td>
         <td className="px-4 tabular-nums">{a.abschluss_datum ? datum(a.abschluss_datum) : l?.prozessEnde ? <span className="text-text-muted">Prozess beendet {datum(l.prozessEnde)}</span> : '–'}</td>
         <td className="px-4 tabular-nums">{a.aufbewahrung_bis ? datum(a.aufbewahrung_bis) : '–'}</td>
