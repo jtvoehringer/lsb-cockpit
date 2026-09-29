@@ -39,4 +39,12 @@
   .nur-druck { display: block; }
   body { background: #fff; font-size: 10.5pt; }
   main { padding: 0 !important; max-width: none !important; }
+  /* Karten und Tabellen: nichts abschneiden, kompakt, ohne Schatten */
+  .karte { box-shadow: none !important; border: 1px solid #D6D0C4; padding: 8px 10px !important; overflow: visible !important; }
+  table { font-size: 8.5pt !important; width: 100% !important; }
+  th, td { padding: 3px 6px !important; white-space: nowrap; }
+  thead th { letter-spacing: .04em !important; }
+  tr { break-inside: avoid; }
+  .druck-summen { display: grid !important; grid-template-columns: repeat(4, 1fr) !important; gap: 6px !important; }
+  .druck-summen .karte b { font-size: 14pt !important; }
 }

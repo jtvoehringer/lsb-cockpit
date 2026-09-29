@@ -55,16 +55,16 @@ export default function Nachweis() {
         <label>bis<input type="date" value={bis} onChange={(e) => setBis(e.target.value)} /></label>
         <label className="flex items-center gap-2 pb-2 text-sm font-normal text-text"><input type="checkbox" checked={nurAbgeschlossen} onChange={(e) => setNurAbgeschlossen(e.target.checked)} /> nur abgeschlossene Protokolle</label>
       </div>
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
+      <div className="druck-summen grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
         {summen.map(([w, t]) => <div key={t} className="karte p-4"><b className="block font-heading text-2xl font-normal tabular-nums text-heading">{w}</b><span className="text-xs text-text-subtle">{t}</span></div>)}
       </div>
       <div className="karte overflow-x-auto p-0">
         <table className="w-full text-sm">
           <thead><tr className="text-left text-xs uppercase tracking-widest text-text-subtle">
-            {['Nr.', 'Datum', 'Chiffre', 'Art', 'Dauer (Std.)', 'Einheiten', 'Vor-/Nachb. (Std.)'].map((h, i) => <th key={h} className={`px-4 py-3 font-medium ${i >= 4 ? 'text-right' : ''}`}>{h}</th>)}
+            {['Nr.', 'Datum', 'Chiffre', 'Art', 'Dauer (Std.)', 'Einheiten', 'Vor-/Nachb. (Std.)'].map((h, i) => <th key={h} className={`whitespace-nowrap px-4 py-3 font-medium ${i >= 4 ? 'text-right' : ''}`}>{h}</th>)}
           </tr></thead>
           <tbody>{zeilen.map((s) => { const m = minuten(s.beginn, s.ende); return (
-            <tr key={s.id} className="border-t border-border"><td className="px-4 py-2 tabular-nums">{s.nr}</td><td className="px-4 tabular-nums">{datum(s.datum)}</td><td className="px-4 tabular-nums">{chiffreVon.get(s.akte_id)}</td><td className="px-4">{ART[s.art].kurz}</td>
+            <tr key={s.id} className="border-t border-border"><td className="px-4 py-2 tabular-nums">{s.nr}</td><td className="px-4 tabular-nums">{datum(s.datum)}</td><td className="whitespace-nowrap px-4 tabular-nums">{chiffreVon.get(s.akte_id)}</td><td className="px-4">{ART[s.art].kurz}</td>
               <td className="px-4 text-right tabular-nums">{stunden(m)}</td><td className="px-4 text-right tabular-nums">{zahl(einheiten(m))}</td><td className="px-4 text-right tabular-nums">{stunden(s.vorbereitung_min + s.nachbereitung_min)}</td></tr>) })}</tbody>
         </table>
       </div>
