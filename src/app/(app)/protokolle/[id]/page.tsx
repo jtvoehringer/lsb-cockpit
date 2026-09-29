@@ -100,6 +100,7 @@ export default function ProtokollBearbeiten() {
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-sm text-text-subtle" aria-live="polite">{entwurf ? speicherStand : ''}</span>
+            <button className="btn btn-ghost" onClick={() => { if (korrektur && geaendert.current && !confirm('Korrektur nicht gespeichert – verwerfen?')) return; void speichern().then(() => router.push('/protokolle')) }}>← Zurück zur Liste</button>
             <button className="btn btn-ghost" onClick={() => { void speichern().then(() => print()) }}>Drucken / PDF</button>
           </div>
         </div>

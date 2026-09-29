@@ -34,11 +34,13 @@
 .druck-tabelle th { background: #EFEBE3; font-weight: 500; }
 
 @media print {
-  @page { size: A4; margin: 18mm; }
+  /* Rand 0: Der Browser druckt dann keine eigene Kopf-/Fußzeile (Adresse, Datum, Seitenzahl).
+     Den Seitenrand übernimmt main – mit „clone“ auf jeder Seite, auch bei mehrseitigen Ausdrucken. */
+  @page { size: A4; margin: 0; }
   .nicht-drucken { display: none !important; }
   .nur-druck { display: block; }
   body { background: #fff; font-size: 10.5pt; }
-  main { padding: 0 !important; max-width: none !important; }
+  main { padding: 16mm 18mm !important; max-width: none !important; box-decoration-break: clone; -webkit-box-decoration-break: clone; }
   /* Karten und Tabellen: nichts abschneiden, kompakt, ohne Schatten */
   .karte { box-shadow: none !important; border: 1px solid #D6D0C4; padding: 8px 10px !important; overflow: visible !important; }
   table { font-size: 8.5pt !important; width: 100% !important; }
