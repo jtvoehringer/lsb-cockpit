@@ -2,6 +2,7 @@
 import { useRouter } from 'next/navigation'
 import { useCallback, useEffect, useState } from 'react'
 import { Geraete } from '@/components/Geraete'
+import { Sicherung } from '@/components/Sicherung'
 import { abmelden, aktiveFreigabe, freigabeBeenden, freigeben, ladeAudit, ladeFreigaben, ladePasskeys, protokolliere, type Freigabe, type PasskeyEintrag } from '@/lib/konto'
 import { supabaseBrowser } from '@/lib/supabase/client'
 import { useTresor } from '@/lib/tresor'
@@ -16,7 +17,7 @@ const EREIGNIS: Record<string, string> = {
   uebernahme_prototyp: 'Übernahme aus Prototyp', buchung_angelegt: 'Buchung angelegt', buchung_geaendert: 'Buchung geändert',
   buchung_geloescht: 'Buchung gelöscht', honorarnote_ausgestellt: 'Honorarnote ausgestellt', honorarnote_bezahlt: 'Honorarnote bezahlt',
   honorarnote_storniert: 'Honorarnote storniert', einstellungen_geaendert: 'Einstellungen geändert',
-  notfallcode_verwendet: 'Mit Notfallblatt entsperrt', stammdaten_geaendert: 'Stammdaten geändert', pseudonym_bestaetigt: 'Namens-Prüfung bestätigt', akte_abgeschlossen: 'Akte abgeschlossen', akte_wieder_geoeffnet: 'Akte wieder geöffnet', akte_geloescht: 'Akte gelöscht', akte_loeschen: 'Löschung bestätigen', fristen_geaendert: 'Aufbewahrungsfristen geändert', dokument_hochgeladen: 'Dokument hochgeladen', dokument_geloescht: 'Dokument gelöscht', passkey_eingerichtet: 'Gerät (Passkey) eingerichtet', passkey_entfernt: 'Gerät (Passkey) entfernt',
+  notfallcode_verwendet: 'Mit Notfallblatt entsperrt', stammdaten_geaendert: 'Stammdaten geändert', pseudonym_bestaetigt: 'Namens-Prüfung bestätigt', akte_abgeschlossen: 'Akte abgeschlossen', auskunft_erstellt: 'Auskunft erstellt', export_erstellt: 'Gesamt-Export erstellt', export_erstellen: 'Export bestätigen', akte_wieder_geoeffnet: 'Akte wieder geöffnet', akte_geloescht: 'Akte gelöscht', akte_loeschen: 'Löschung bestätigen', fristen_geaendert: 'Aufbewahrungsfristen geändert', dokument_hochgeladen: 'Dokument hochgeladen', dokument_geloescht: 'Dokument gelöscht', passkey_eingerichtet: 'Gerät (Passkey) eingerichtet', passkey_entfernt: 'Gerät (Passkey) entfernt',
   support_freigegeben: 'Support freigegeben', support_freigabe_beendet: 'Support-Freigabe beendet', support_zugriff: 'Zugriff durch Support',
 }
 
@@ -54,6 +55,8 @@ export default function Schutz() {
       </div>
 
       <Geraete passkeys={passkeys} laden={laden} zeit={zeit} />
+
+      <Sicherung />
 
       <div className="karte space-y-3">
         <h2 className="font-heading text-heading">Support-Freigabe (ICP)</h2>
