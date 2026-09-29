@@ -149,7 +149,7 @@ export default function Anmelden() {
       {schritt === 'entsperren' && (
         <Bestaetigung knopf="Entsperren" ereignis="entsperren" autoFocus weiter={async (t, mittel) => {
           tresor.oeffnen(t)
-          await protokolliere('anmeldung', mittel === 'passkey' ? 'E-Mail-Code + Passkey' : 'E-Mail-Code + Passphrase')
+          await protokolliere('anmeldung', 'E-Mail-Code + ' + { passkey: 'Passkey', passphrase: 'Passphrase', notfall: 'Notfallblatt' }[mittel])
           router.replace('/')
         }} />
       )}

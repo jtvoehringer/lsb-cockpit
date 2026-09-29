@@ -74,7 +74,7 @@ export default function Register() {
         <Bestaetigung knopf="Register öffnen" ereignis="register_geoeffnet" autoFocus weiter={async (_t, mittel) => {
           aktivitaet.current = Date.now()
           await laden(); setOffen(true)
-          await protokolliere('register_geoeffnet', mittel === 'passkey' ? 'Passkey' : undefined)
+          await protokolliere('register_geoeffnet', { passkey: 'Passkey', passphrase: 'Passphrase', notfall: 'Notfallblatt' }[mittel])
         }} />
       </div>
     </div>

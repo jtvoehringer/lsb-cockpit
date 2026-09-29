@@ -19,7 +19,7 @@ export default function Entsperren() {
     <SchmalerRahmen titel="Gesperrt" untertitel="Zum Weiterarbeiten entsperren.">
       <Bestaetigung knopf="Entsperren" ereignis="entsperren" autoFocus weiter={async (t, mittel) => {
         tresor.oeffnen(t)
-        await protokolliere('entsperrt', mittel === 'passkey' ? 'Passkey' : undefined)
+        await protokolliere('entsperrt', { passkey: 'Passkey', passphrase: 'Passphrase', notfall: 'Notfallblatt' }[mittel])
         router.replace('/')
       }} />
       <button className="btn btn-ghost mt-6 w-full" onClick={async () => { await abmelden(); router.replace('/anmelden') }}>Abmelden</button>
