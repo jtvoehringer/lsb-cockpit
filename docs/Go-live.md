@@ -7,7 +7,7 @@ Rollen: **J** = Jörgen, **C** = Claude (nur nach ausdrücklichem „Go“ von J
 
 ## 0. Voraussetzungen
 - [ ] E-07 abgeschlossen, Befunde erledigt (J)
-- [ ] Praxisname für die Honorarnoten festgelegt (Firmenname; änderbar später unter „Einstellungen“) (J/M)
+- [x] Praxisname festgelegt (29.09.2026): **Mevora e.U.**, Wienerstr. 103, 2352 Gumpoldskirchen, Österreich, Tel. +43 664 510 7231
 - [ ] Termin mit Melanie: Laptop (Chrome) **und** iPhone dabei, Drucker für das Notfallblatt, Handy mit Authenticator-App (J/M)
 
 ## 1. Supabase-Einstellungen prüfen (J, Dashboard)
@@ -45,8 +45,8 @@ Rückweg: Vercel → Deployments → vorheriges Produktions-Deployment → „In
 ## 4. Konten anlegen (J, lokal – Service-Role-Schlüssel nie in Vercel oder im Code)
 ```powershell
 $env:SUPABASE_SERVICE_ROLE_KEY = "<Dashboard → Project Settings → API Keys → secret>"
-node scripts/konto-anlegen.mjs jv@icp-consultants.at "<Praxisname>" --support
-node scripts/konto-anlegen.mjs m.voehringer@kabsi.at "<Praxisname>"
+node scripts/konto-anlegen.mjs jv@icp-consultants.at "Mevora e.U." --support
+node scripts/konto-anlegen.mjs m.voehringer@kabsi.at "Mevora e.U."
 Remove-Item Env:SUPABASE_SERVICE_ROLE_KEY
 ```
 Beide Male **denselben** Praxisnamen verwenden (sonst entstehen zwei Praxen). Die Einrichtungscodes notieren.
@@ -70,7 +70,7 @@ Am **iPhone** (Safari oder Chrome):
 
 Gemeinsam:
 - [ ] Wiederherstellung einmal testen: Sperren → „Mit Notfallblatt“ → Code vom Blatt
-- [ ] Einstellungen: Absender, Bankverbindung, Honorarsatz
+- [ ] Einstellungen: Absender (Mevora e.U., Wienerstr. 103, 2352 Gumpoldskirchen, Tel. +43 664 510 7231), Bankverbindung, Honorarsatz
 - [ ] Erstes Protokoll per Diktat (Mikrofon erlauben; Sprachmodell lädt einmalig ~250 MB)
 - [ ] Optional: Support-Freigabe 1 Stunde → J prüft `/support` → Freigabe beenden
 
