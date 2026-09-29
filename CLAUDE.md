@@ -21,5 +21,5 @@
 - Lokal starten: Windows blockiert die native Next-SWC (Application Control) → `next dev --webpack` (siehe LSB/.claude/launch.json „cockpit“).
 - Kein Service-Role-Schlüssel in Vercel oder im Code. Konten legt ICP lokal mit `scripts/konto-anlegen.mjs` an.
 - Tests: `npm test` (Krypto-Kern, läuft im Build – Fehler = kein Deployment). `npx vitest run --config vitest.e2e.config.ts` mit E2E_EMAIL/E2E_EINRICHTUNGSCODE nur gegen das fiktive Testkonto `test-beraterin@lsb-cockpit.invalid` (vor Go-live löschen).
-- Branches: `main` = Produktion (derzeit der Diktat-Prototyp, Melanie arbeitet damit!). Cockpit-Entwicklung auf `cockpit` (Vercel-Preview, geschützt). Umstellung erst nach E-07 (externe Prüfung).
+- Branches: `main` = Produktion **= Cockpit seit Go-live 29.09.2026** (lsb.icp-consultants.at; vorher Diktat-Prototyp, per `merge -s ours` ersetzt). Entwicklung weiter auf `cockpit` (Preview), Auslieferung mit `git push origin cockpit:main`. Testdaten und Testkonten sind gelöscht – E2E-Tests brauchen neue fiktive Konten (nicht in der echten Praxis!). Der alte Worktree `LSB\prototyp-diktat` (main) und sein `push.ps1` dürfen nicht mehr verwendet werden.
 - Lieferweg: Dateien direkt schreiben; Jörgen pusht mit `push.ps1` (bzw. Claude nach Freigabe).
