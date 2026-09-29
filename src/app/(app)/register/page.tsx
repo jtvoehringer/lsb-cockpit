@@ -2,13 +2,13 @@
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { FalschePassphrase } from '@/lib/crypto/kern'
+import { Bestaetigung } from '@/components/Bestaetigung'
 import { datum } from '@/lib/format'
-import { protokolliere, tresorOeffnen } from '@/lib/konto'
+import { protokolliere } from '@/lib/konto'
 import { aktualisiereRegister, ladeAkten, ladeRegister, ladeSitzungen, neueAkte, neueSitzung, type Akte, type RegisterInhalt } from '@/lib/protokolle/daten'
 import { useTresor } from '@/lib/tresor'
 
-// Register (Zone C): Chiffre ↔ Person. Anzeige erst nach erneuter Passphrase-Eingabe (E-04), Sperre nach 5 Minuten.
+// Register (Zone C): Chiffre ↔ Person. Anzeige erst nach erneuter Bestätigung – Passkey oder Passphrase (E-04), Sperre nach 5 Minuten.
 // Namen erscheinen nie in Listen der Dokumentation (Zone B).
 const REGISTER_SPERRE_MIN = 5
 type Zeile = RegisterInhalt & { id: string; akte?: Akte; letzteSitzung?: string }
@@ -17,7 +17,6 @@ export default function Register() {
   const tresor = useTresor()
   const router = useRouter()
   const [offen, setOffen] = useState(false)
-  const [passphrase, setPassphrase] = useState('')
   const [arbeitet, setArbeitet] = useState(false)
   const [fehler, setFehler] = useState('')
   const [zeilen, setZeilen] = useState<Zeile[]>([])
@@ -43,19 +42,6 @@ export default function Register() {
     const letzte = new Map<string, string>()
     for (const s of sitzungen) if (!letzte.has(s.akte_id) || letzte.get(s.akte_id)! < s.datum) letzte.set(s.akte_id, s.datum)
     setZeilen(reg.map((r) => ({ ...r, akte: akteVon.get(r.akte_id), letzteSitzung: letzte.get(r.akte_id) })).sort((a, b) => (b.akte?.erstellt_am ?? '').localeCompare(a.akte?.erstellt_am ?? '')))
-  }
-
-  async function entsperren(e: React.FormEvent) {
-    e.preventDefault(); setFehler(''); setArbeitet(true)
-    try {
-      await tresorOeffnen(passphrase) // prüft die Passphrase (die Schlüssel sind schon offen)
-      setPassphrase(''); aktivitaet.current = Date.now()
-      await laden(); setOffen(true)
-      await protokolliere('register_geoeffnet')
-    } catch (err) {
-      setFehler(err instanceof FalschePassphrase ? 'Passphrase stimmt nicht.' : (err as Error).message)
-      if (err instanceof FalschePassphrase) await protokolliere('register_geoeffnet', undefined, 'fehlgeschlagen')
-    } finally { setArbeitet(false) }
   }
 
   async function speichern(z: Zeile) {
@@ -84,12 +70,12 @@ export default function Register() {
     <div className="max-w-md space-y-6">
       <div><p className="overline">Register</p><h1 className="mt-2 font-heading text-heading">Chiffren und Personen</h1></div>
       <div className="karte space-y-4">
-        <p>Das Register verbindet Chiffren mit Namen. Es ist zusätzlich geschützt: bitte die Passphrase noch einmal eingeben. Nach {REGISTER_SPERRE_MIN} Minuten ohne Eingabe sperrt es sich wieder.</p>
-        <form onSubmit={entsperren} className="space-y-4">
-          <label>Passphrase<input type="password" autoComplete="current-password" required autoFocus value={passphrase} onChange={(e) => setPassphrase(e.target.value)} /></label>
-          <p className="fehler" role="alert">{fehler}</p>
-          <button className="btn btn-cta w-full" disabled={arbeitet}>{arbeitet ? 'Wird geprüft …' : 'Register öffnen'}</button>
-        </form>
+        <p>Das Register verbindet Chiffren mit Namen. Es ist zusätzlich geschützt: bitte noch einmal bestätigen. Nach {REGISTER_SPERRE_MIN} Minuten ohne Eingabe sperrt es sich wieder.</p>
+        <Bestaetigung knopf="Register öffnen" ereignis="register_geoeffnet" autoFocus weiter={async (_t, mittel) => {
+          aktivitaet.current = Date.now()
+          await laden(); setOffen(true)
+          await protokolliere('register_geoeffnet', mittel === 'passkey' ? 'Passkey' : undefined)
+        }} />
       </div>
     </div>
   )

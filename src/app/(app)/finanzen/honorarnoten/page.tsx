@@ -2,12 +2,12 @@
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { FalschePassphrase } from '@/lib/crypto/kern'
+import { Bestaetigung } from '@/components/Bestaetigung'
 import { ladeEinstellungen, type PraxisEinstellungen } from '@/lib/einstellungen'
 import { datum, heute, zahl } from '@/lib/format'
 import { alsBezahlt, ausstellen, ladeHonorarnoten, offeneSitzungen, positionsBetrag, stornieren, summe, type Honorarnote, type Position } from '@/lib/finanzen/honorarnoten'
 import { betragAusText, euro, ZAHLUNGSART, type Zahlungsart } from '@/lib/finanzen/modell'
-import { protokolliere, tresorOeffnen } from '@/lib/konto'
+import { protokolliere } from '@/lib/konto'
 import { ladeAkten, ladeRegister, ladeSitzungen, type Akte, type Sitzung } from '@/lib/protokolle/daten'
 import { ART } from '@/lib/protokolle/modell'
 import { useTresor } from '@/lib/tresor'
@@ -23,7 +23,7 @@ export default function Honorarnoten() {
   const [einst, setEinst] = useState<PraxisEinstellungen | null>(null)
   const [fehler, setFehler] = useState('')
   const [neu, setNeu] = useState<null | { akte_id: string; gewaehlt: Set<string>; satz: string; datum: string; name: string; adresse: string; sofort: '' | Zahlungsart }>(null)
-  const [registerPass, setRegisterPass] = useState('')
+  const [registerFrage, setRegisterFrage] = useState(false)
   const [zahlung, setZahlung] = useState<null | { id: string; datum: string; art: Zahlungsart }>(null)
   const [arbeitet, setArbeitet] = useState(false)
   const kA = useCallback(() => tresor.schluessel('zone_a'), [tresor])
@@ -49,13 +49,11 @@ export default function Honorarnoten() {
   async function ausRegister() {
     if (!neu) return
     setFehler('')
-    try {
-      await tresorOeffnen(registerPass); setRegisterPass('')
-      const r = (await ladeRegister(tresor.schluessel('zone_c'))).find((x) => x.akte_id === neu.akte_id)
-      await protokolliere('register_geoeffnet', 'für Honorarnote')
-      setNeu({ ...neu, name: r?.name ?? '', adresse: r?.adresse ?? '' })
-      if (!r?.name) setFehler('Im Register ist zu dieser Chiffre noch kein Name eingetragen.')
-    } catch (x) { setFehler(x instanceof FalschePassphrase ? 'Passphrase stimmt nicht.' : (x as Error).message) }
+    const r = (await ladeRegister(tresor.schluessel('zone_c'))).find((x) => x.akte_id === neu.akte_id)
+    await protokolliere('register_geoeffnet', 'für Honorarnote')
+    setNeu({ ...neu, name: r?.name ?? '', adresse: r?.adresse ?? '' })
+    setRegisterFrage(false)
+    if (!r?.name) setFehler('Im Register ist zu dieser Chiffre noch kein Name eingetragen.')
   }
 
   async function ausstellenKlick() {
@@ -121,9 +119,10 @@ export default function Honorarnoten() {
             <label>Honorar je Einheit (€)<input inputMode="decimal" value={neu.satz} onChange={(e) => setNeu({ ...neu, satz: e.target.value })} /></label>
             <div><span className="block text-[13px] font-medium text-text-muted">Summe</span><b className="mt-2 block text-xl tabular-nums">{euro(summe(positionen))}</b></div>
             <label className="sm:col-span-2">Empfänger:in (Name)<input value={neu.name} onChange={(e) => setNeu({ ...neu, name: e.target.value })} autoComplete="off" /></label>
-            <div className="flex items-end gap-2">
-              <label className="flex-1">Aus Register übernehmen<input type="password" placeholder="Passphrase" value={registerPass} onChange={(e) => setRegisterPass(e.target.value)} autoComplete="current-password" /></label>
-              <button type="button" className="btn btn-ghost" onClick={() => void ausRegister()}>Holen</button>
+            <div className="flex items-end">
+              {registerFrage
+                ? <div className="w-full"><Bestaetigung knopf="Aus Register holen" ereignis="register_geoeffnet" weiter={ausRegister} /></div>
+                : <button type="button" className="btn btn-ghost w-full" onClick={() => setRegisterFrage(true)}>Aus Register übernehmen …</button>}
             </div>
             <label className="sm:col-span-3">Adresse (mehrzeilig möglich)<textarea value={neu.adresse} onChange={(e) => setNeu({ ...neu, adresse: e.target.value })} rows={3} className="mt-1 block w-full rounded-md border border-border-input bg-surface p-3" /></label>
             <label>Bereits bezahlt?<select value={neu.sofort} onChange={(e) => setNeu({ ...neu, sofort: e.target.value as '' | Zahlungsart })} className="mt-1 block w-full rounded-md border border-border-input bg-surface px-3 py-2.5">

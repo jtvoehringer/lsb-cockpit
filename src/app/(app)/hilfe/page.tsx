@@ -10,7 +10,8 @@ const BEREICHE: { titel: string; fragen: Frage[] }[] = [
     fragen: [
       { f: 'Wer kann meine Protokolle lesen?', a: ['Nur du. Alle Inhalte und Namen werden auf deinem Gerät verschlüsselt, bevor sie gespeichert werden. ICP, Supabase (Datenbank) und Vercel (Hosting) sehen ausschließlich unlesbaren Chiffretext.', 'Im Klartext gespeichert sind nur pseudonyme Eckdaten wie Chiffre, Datum, Uhrzeit und Einheiten – ohne Namen.'] },
       { f: 'Warum Passphrase und zusätzlich ein Code aus der Authenticator-App?', a: ['Die Passphrase ist der Schlüssel zu deinen Daten. Der Code aus der App ist der zweite Faktor: Selbst wer deine Passphrase kennt, kommt ohne dein Handy nicht hinein.'] },
-      { f: 'Was bedeutet „Gesperrt“?', a: [`Nach ${SPERRE_NACH_MIN} Minuten ohne Eingabe, beim Neuladen der Seite oder über „Sperren“ werden die Schlüssel aus dem Arbeitsspeicher entfernt. Deine Anmeldung bleibt bestehen – zum Weiterarbeiten genügt die Passphrase.`] },
+      { f: 'Was bedeutet „Gesperrt“?', a: [`Nach ${SPERRE_NACH_MIN} Minuten ohne Eingabe, beim Neuladen der Seite oder über „Sperren“ werden die Schlüssel aus dem Arbeitsspeicher entfernt. Deine Anmeldung bleibt bestehen – zum Weiterarbeiten genügt Windows Hello bzw. Face ID (wenn eingerichtet) oder die Passphrase.`] },
+      { f: 'Wie richte ich Windows Hello bzw. Face ID ein?', a: ['Unter „Schutz & Audit“ → „Dieses Gerät einrichten“, Bezeichnung prüfen, Passphrase eingeben und am Gerät bestätigen. Danach entsperrst du auf diesem Gerät mit Fingerabdruck, Gesicht oder Geräte-PIN – auch das Register.', 'Das Gerät erzeugt dafür einen eigenen Schlüssel (Passkey), der es nie verlässt. Jedes Gerät (Laptop, iPhone) wird einmal eingerichtet. Ein verlorenes Gerät unter „Schutz & Audit“ entfernen.'] },
       { f: 'Ich habe meine Passphrase vergessen.', a: ['Ein Zurücksetzen per E-Mail gibt es bewusst nicht, sonst wären die Daten nicht wirklich geschützt. Der Weg zurück führt über das Notfallblatt mit dem Wiederherstellungscode – bitte gemeinsam mit ICP.', 'Ohne Passphrase und ohne Notfallblatt sind die Daten nicht wiederherstellbar – auch nicht durch ICP.'] },
       { f: 'Mein Handy mit der Authenticator-App ist weg.', a: ['Bitte ICP kontaktieren. Nach einer Identitätsprüfung wird der zweite Faktor zurückgesetzt; deine Daten bleiben dabei verschlüsselt, weil nur die Passphrase sie öffnet. Zusätzlich unter „Schutz & Audit“ → „Auf allen Geräten abmelden“.'] },
       { f: 'Wofür ist das Notfallblatt?', a: ['Es enthält den Wiederherstellungscode. Damit lässt sich bei vergessener Passphrase eine neue setzen. Ausgedruckt, nicht digital, sicher verwahren – z. B. versiegelt bei einer Vertrauensperson oder im Safe.'] },
@@ -31,7 +32,7 @@ const BEREICHE: { titel: string; fragen: Frage[] }[] = [
   {
     titel: 'Register und Nachweis',
     fragen: [
-      { f: 'Warum muss ich für das Register die Passphrase noch einmal eingeben?', a: ['Das Register verbindet Chiffren mit Namen und ist deshalb zusätzlich geschützt. Nach 5 Minuten ohne Eingabe sperrt es sich wieder. In den Protokoll-Listen erscheinen nie Namen.'] },
+      { f: 'Warum muss ich das Register noch einmal bestätigen?', a: ['Das Register verbindet Chiffren mit Namen und ist deshalb zusätzlich geschützt – mit Windows Hello / Face ID oder der Passphrase. Nach 5 Minuten ohne Eingabe sperrt es sich wieder. In den Protokoll-Listen erscheinen nie Namen.'] },
       { f: 'Wofür ist die Nachweisliste?', a: ['Sie zählt Protokolle, Einheiten, Stunden, Erstgespräche und abgeschlossene Prozesse – z. B. für den Befähigungsnachweis. Sie enthält nur Chiffren, keine Namen, und lässt sich als PDF drucken oder als CSV (Excel) speichern.'] },
     ],
   },

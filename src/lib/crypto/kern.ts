@@ -92,6 +92,23 @@ export async function kekAusCode(code: string, kdf: KdfParameter): Promise<Crypt
   return subtle.deriveKey({ name: 'HKDF', hash: 'SHA-256', salt: ausBase64(kdf.salt), info: utf8(kdf.info) }, basis, { name: 'AES-KW', length: 256 }, false, ['wrapKey', 'unwrapKey'])
 }
 
+// ---------- Passkey (WebAuthn-PRF) ----------
+// Das Gerät (Windows Hello / Face ID) liefert nach Freigabe 32 geheime Bytes (PRF). Daraus per HKDF eine KEK,
+// die eine weitere Kopie des Master-Schlüssels verpackt – je Passkey eine Kopie.
+
+const PASSKEY_INFO = 'lsb-cockpit/passkey/v1'
+
+export function neuePasskeyParameter(): KdfParameter {
+  return { alg: 'HKDF-SHA256', salt: zuBase64(zufall(16)), info: PASSKEY_INFO }
+}
+
+export async function kekAusPrf(prf: ArrayBuffer | Uint8Array<ArrayBuffer>, kdf: KdfParameter): Promise<CryptoKey> {
+  if (kdf.alg !== 'HKDF-SHA256' || kdf.info !== PASSKEY_INFO) throw new Error('Unbekanntes Ableitungsverfahren')
+  if (prf.byteLength < 32) throw new Error('Passkey liefert zu wenig Schlüsselmaterial')
+  const basis = await subtle.importKey('raw', prf, 'HKDF', false, ['deriveKey'])
+  return subtle.deriveKey({ name: 'HKDF', hash: 'SHA-256', salt: ausBase64(kdf.salt), info: utf8(kdf.info) }, basis, { name: 'AES-KW', length: 256 }, false, ['wrapKey', 'unwrapKey'])
+}
+
 // ---------- Datensätze verschlüsseln (AES-256-GCM, Format v1) ----------
 // Aufbau: [1 Byte Version][12 Byte IV][Chiffretext + 16 Byte Tag], Base64.
 // AAD bindet den Chiffretext an Tabelle, Datensatz und Feld: lsb:v1:<tabelle>:<id>:<feld>
@@ -161,15 +178,23 @@ export type Tresorinhalt = Record<Zone, CryptoKey>
 
 /** Aktuelle Einträge (je Art höchste Version) mit der Passphrase öffnen. Wirft bei falscher Passphrase. */
 export async function schluesselbundOeffnen(eintraege: SchluesselbundEintrag[], passphrase: string): Promise<Tresorinhalt> {
-  const aktuell = aktuellsteEintraege(eintraege)
-  const m = aktuell.master
+  return tresorAusMaster(eintraege, await masterMitPassphrase(eintraege, passphrase))
+}
+
+/** Master-Schlüssel mit der Passphrase entpacken (exportierbar nur, um ihn für einen Passkey neu zu verpacken). */
+export async function masterMitPassphrase(eintraege: SchluesselbundEintrag[], passphrase: string, exportierbar = false): Promise<CryptoKey> {
+  const m = aktuellsteEintraege(eintraege).master
   if (!m?.kdf) throw new Error('Kein Master-Schlüssel eingerichtet')
-  let master: CryptoKey
   try {
-    master = await entpackeMaster(m.verpackt, await kekAusPassphrase(passphrase, m.kdf))
+    return await entpackeMaster(m.verpackt, await kekAusPassphrase(passphrase, m.kdf), exportierbar)
   } catch {
     throw new FalschePassphrase()
   }
+}
+
+/** Zonen-Schlüssel (je Art höchste Version) mit dem Master-Schlüssel entpacken. */
+export async function tresorAusMaster(eintraege: SchluesselbundEintrag[], master: CryptoKey): Promise<Tresorinhalt> {
+  const aktuell = aktuellsteEintraege(eintraege)
   const out = {} as Tresorinhalt
   for (const zone of ZONEN) {
     const z = aktuell[zone]

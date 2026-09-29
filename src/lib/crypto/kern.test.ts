@@ -2,8 +2,8 @@
 import { describe, expect, it } from 'vitest'
 import {
   aad, anmeldeGeheimnis, entpackeMaster, entschluessele, FalschePassphrase, formatiereCode, kekAusCode,
-  kekAusPassphrase, neueKdfParameter, neuerZonenSchluessel, schluesselbundEinrichten, schluesselbundOeffnen,
-  verschluessele, type SchluesselbundEintrag,
+  kekAusPassphrase, kekAusPrf, masterMitPassphrase, neueKdfParameter, neuePasskeyParameter, neuerZonenSchluessel,
+  schluesselbundEinrichten, schluesselbundOeffnen, tresorAusMaster, verpacke, verschluessele, type SchluesselbundEintrag,
 } from './kern'
 import { ausBase64, ausCrockford, ausHex, utf8, zuBase64, zuCrockford, zuHex } from './kodierung'
 import { pruefePassphrase } from './passphrase'
@@ -165,6 +165,26 @@ describe('Schlüsselbund', () => {
     const notfall = eintraege.find((e) => e.art === 'notfall')!
     const falsch = zuCrockford(globalThis.crypto.getRandomValues(new Uint8Array(16)))
     await expect(entpackeMaster(notfall.verpackt, await kekAusCode(falsch, notfall.kdf!))).rejects.toThrow()
+  })
+
+  it('Passkey-PRF verpackt eine Kopie des Master-Schlüssels; anderes PRF oder Notfall-Parameter scheitern', async () => {
+    const { eintraege } = await schluesselbundEinrichten(P, SCHNELL)
+    const z = aad('akte', 'p', 'inhalt')
+    const vorher = await verschluessele((await schluesselbundOeffnen(eintraege, P)).zone_b, 'geheim', z)
+
+    const master = await masterMitPassphrase(eintraege, P, true)
+    const prf = globalThis.crypto.getRandomValues(new Uint8Array(32))
+    const kdf = neuePasskeyParameter()
+    const verpackt = await verpacke(master, await kekAusPrf(prf, kdf))
+
+    const t = await tresorAusMaster(eintraege, await entpackeMaster(verpackt, await kekAusPrf(prf, kdf)))
+    expect(await entschluessele(t.zone_b, vorher, z)).toBe('geheim')
+    const anderes = globalThis.crypto.getRandomValues(new Uint8Array(32))
+    await expect(entpackeMaster(verpackt, await kekAusPrf(anderes, kdf))).rejects.toThrow()
+    await expect(kekAusPrf(prf, eintraege.find((e) => e.art === 'notfall')!.kdf!)).rejects.toThrow()
+    await expect(kekAusPrf(prf.slice(0, 16), kdf)).rejects.toThrow()
+    // Ohne „exportierbar“ lässt sich der Master nicht neu verpacken
+    await expect(verpacke(await masterMitPassphrase(eintraege, P), await kekAusPrf(prf, kdf))).rejects.toThrow()
   })
 
   it('Produktions-Iterationen: 600.000', async () => {

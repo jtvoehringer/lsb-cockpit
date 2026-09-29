@@ -2,7 +2,11 @@
 // Anmeldung, Einrichtung und Schlüsselbund – alles im Browser. Die Passphrase verlässt das Gerät nie;
 // Supabase erhält nur das daraus abgeleitete Anmelde-Geheimnis (Lösungsdesign 4.2).
 import { supabaseBrowser } from './supabase/client'
-import { anmeldeGeheimnis, schluesselbundEinrichten, schluesselbundOeffnen, type KdfParameter, type SchluesselbundEintrag, type Tresorinhalt } from './crypto/kern'
+import {
+  anmeldeGeheimnis, entpackeMaster, kekAusPrf, masterMitPassphrase, neuePasskeyParameter, schluesselbundEinrichten, schluesselbundOeffnen,
+  tresorAusMaster, verpacke, type KdfParameter, type SchluesselbundEintrag, type Tresorinhalt,
+} from './crypto/kern'
+import { passkeyAnlegen, passkeyBestaetigen } from './passkey'
 
 export class AnmeldungFehlgeschlagen extends Error {
   constructor(meldung = 'E-Mail-Adresse oder Passphrase stimmen nicht.') { super(meldung) }
@@ -85,6 +89,49 @@ export async function ladeSchluesselbund(): Promise<SchluesselbundEintrag[]> {
 
 export async function tresorOeffnen(passphrase: string): Promise<Tresorinhalt> {
   return schluesselbundOeffnen(await ladeSchluesselbund(), passphrase)
+}
+
+// ---------- Passkeys (Entsperren mit Windows Hello / Face ID) ----------
+
+export type PasskeyEintrag = { id: string; credential_id: string; bezeichnung: string; verpackt: string; kdf: KdfParameter; erstellt_am: string }
+
+export async function ladePasskeys(): Promise<PasskeyEintrag[]> {
+  const { data, error } = await sb().from('passkey_schluessel').select('id, credential_id, bezeichnung, verpackt, kdf, erstellt_am').order('erstellt_am')
+  if (error) throw error
+  return (data ?? []) as PasskeyEintrag[]
+}
+
+/** Dieses Gerät als Schlüssel hinzufügen. Die Passphrase beweist den Zugriff und öffnet den Master-Schlüssel zum Neu-Verpacken. */
+export async function passkeyEinrichten(passphrase: string, bezeichnung: string) {
+  const { data: { user } } = await sb().auth.getUser()
+  if (!user?.email) throw new Error('Nicht angemeldet')
+  const master = await masterMitPassphrase(await ladeSchluesselbund(), passphrase, true)
+  const vorhandene = await ladePasskeys()
+  const { credentialId, prf } = await passkeyAnlegen({ id: user.id, email: user.email }, vorhandene.map((p) => p.credential_id))
+  const kdf = neuePasskeyParameter()
+  const verpackt = await verpacke(master, await kekAusPrf(prf, kdf))
+  const { error } = await sb().from('passkey_schluessel').insert({ credential_id: credentialId, bezeichnung: bezeichnung.trim().slice(0, 60) || 'Gerät', verpackt, kdf })
+  if (error) throw error
+  await protokolliere('passkey_eingerichtet', bezeichnung.trim().slice(0, 60))
+}
+
+export async function passkeyEntfernen(p: PasskeyEintrag) {
+  const { error } = await sb().from('passkey_schluessel').delete().eq('id', p.id)
+  if (error) throw error
+  await protokolliere('passkey_entfernt', p.bezeichnung)
+}
+
+/** Tresor mit einem Passkey öffnen (wirft PasskeyAbgebrochen, wenn abgebrochen). */
+export async function tresorOeffnenMitPasskey(passkeys?: PasskeyEintrag[]): Promise<Tresorinhalt> {
+  const liste = passkeys ?? await ladePasskeys()
+  if (!liste.length) throw new Error('Auf diesem Konto ist noch kein Passkey eingerichtet.')
+  const { credentialId, prf } = await passkeyBestaetigen(liste.map((p) => p.credential_id))
+  const p = liste.find((x) => x.credential_id === credentialId)
+  if (!p) throw new Error('Unbekannter Passkey.')
+  let master: CryptoKey
+  try { master = await entpackeMaster(p.verpackt, await kekAusPrf(prf, p.kdf)) }
+  catch { throw new Error('Der Passkey passt nicht zum Schlüsselbund. Bitte mit der Passphrase entsperren.') }
+  return tresorAusMaster(await ladeSchluesselbund(), master)
 }
 
 export async function abmelden(ueberall = false) {
