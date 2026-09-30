@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation'
 import { useEffect, useMemo, useState } from 'react'
 import { datum, heute, stunden, zahl } from '@/lib/format'
 import { ladeAkten, ladeSitzungen, neueAkte, neueSitzung, type Akte, type Sitzung } from '@/lib/protokolle/daten'
-import { ART, minuten, pruefeDatum, PROTOKOLL_AB_JAHR } from '@/lib/protokolle/modell'
+import { ART, chiffreJahr, minuten, pruefeDatum, PROTOKOLL_AB_JAHR } from '@/lib/protokolle/modell'
 import { protokolliere } from '@/lib/konto'
 import { useTresor } from '@/lib/tresor'
 
@@ -54,9 +54,12 @@ export default function Protokolle() {
     const f = pruefeDatum(neu.datum); if (f) { setFehler(f); return }
     const erst = (sitzungen ?? []).filter((s) => s.akte_id === folgeAkte).map((s) => s.datum).sort()[0]
     if (erst && neu.datum < erst) { setFehler(`Das Datum liegt vor dem ersten Gespräch dieser Chiffre (${datum(erst)}).`); return }
+    // Akte ohne Protokolle (z. B. im Register „Nur anlegen“): das erste Gespräch ist das Erstgespräch – im Jahr der Chiffre
+    const jahr = chiffreJahr(akten.find((a) => a.id === folgeAkte)?.chiffre ?? '')
+    if (!erst && jahr && Number(neu.datum.slice(0, 4)) !== jahr) { setFehler(`Diese Chiffre hat noch kein Gespräch – das Erstgespräch muss im Jahr der Chiffre (${jahr}) liegen.`); return }
     setArbeitet(true); setFehler('')
     try {
-      const s = await neueSitzung(folgeAkte, 'folge', { datum: neu.datum, in_ausbildung: neu.ausbildung })
+      const s = await neueSitzung(folgeAkte, erst ? 'folge' : 'erst', { datum: neu.datum, in_ausbildung: neu.ausbildung })
       router.push(`/protokolle/${s.id}`)
     } catch (e) { setFehler((e as Error).message); setArbeitet(false) }
   }
@@ -70,7 +73,7 @@ export default function Protokolle() {
           <label className="min-w-44">Beratungsgespräch zu
             <select value={folgeAkte} onChange={(e) => waehleFolgeAkte(e.target.value)} className="mt-1 block w-full rounded-md border border-border-input bg-surface px-3 py-2.5 text-base">
               <option value="">Chiffre wählen …</option>
-              {akten.filter((a) => a.status === 'offen').map((a) => <option key={a.id} value={a.id}>{a.chiffre}</option>)}
+              {akten.filter((a) => a.status === 'offen').map((a) => <option key={a.id} value={a.id}>{a.chiffre}{(sitzungen ?? []).some((s) => s.akte_id === a.id) ? '' : ' (noch kein Gespräch → Erstgespräch)'}</option>)}
             </select>
           </label>
           <button className="btn btn-primary" onClick={beratungsgespraech} disabled={arbeitet}>+ Beratungsgespräch</button>
