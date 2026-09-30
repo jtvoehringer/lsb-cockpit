@@ -12,10 +12,10 @@ import {
 } from '@/lib/protokolle/daten'
 import { pruefeText, TREFFER_TITEL, type Treffer } from '@/lib/protokolle/pseudonym'
 import { ladeStammdaten } from '@/lib/stammdaten'
-import { ART, einheiten, leererInhalt, minuten, type Feld, type Inhalt } from '@/lib/protokolle/modell'
+import { ART, AUSBILDUNG_VERMERK, chiffreJahr, einheiten, leererInhalt, minuten, pruefeDatum, PROTOKOLL_AB_JAHR, type Feld, type Inhalt } from '@/lib/protokolle/modell'
 import { useTresor } from '@/lib/tresor'
 
-type Kopf = Pick<Sitzung, 'datum' | 'beginn' | 'ende' | 'vorbereitung_min' | 'nachbereitung_min' | 'prozess_abgeschlossen'>
+type Kopf = Pick<Sitzung, 'datum' | 'beginn' | 'ende' | 'vorbereitung_min' | 'nachbereitung_min' | 'prozess_abgeschlossen' | 'in_ausbildung'>
 
 export default function ProtokollBearbeiten() {
   const { id } = useParams<{ id: string }>()
@@ -39,7 +39,7 @@ export default function ProtokollBearbeiten() {
     const sitzung = await ladeSitzung(id)
     const [akten, r] = await Promise.all([ladeAkten(), ladeInhalt(tresor.schluessel('zone_b'), sitzung)])
     setS(sitzung); setChiffre(akten.find((a) => a.id === sitzung.akte_id)?.chiffre ?? '')
-    setKopf({ datum: sitzung.datum, beginn: sitzung.beginn, ende: sitzung.ende, vorbereitung_min: sitzung.vorbereitung_min, nachbereitung_min: sitzung.nachbereitung_min, prozess_abgeschlossen: sitzung.prozess_abgeschlossen })
+    setKopf({ datum: sitzung.datum, beginn: sitzung.beginn, ende: sitzung.ende, vorbereitung_min: sitzung.vorbereitung_min, nachbereitung_min: sitzung.nachbereitung_min, prozess_abgeschlossen: sitzung.prozess_abgeschlossen, in_ausbildung: sitzung.in_ausbildung })
     setInhalt(r.inhalt); setVersionen(r.versionen); setKorrektur(false); geaendert.current = false
   }, [id, tresor])
 
@@ -84,6 +84,10 @@ export default function ProtokollBearbeiten() {
     if (!s || !kopf) return
     const fehlt = [!kopf.datum && 'Datum', !minuten(kopf.beginn, kopf.ende) && 'Beginn/Ende'].filter(Boolean)
     if (fehlt.length) { setFehler(`Bitte ausfüllen: ${fehlt.join(', ')}`); return }
+    const datumFehler = pruefeDatum(kopf.datum)
+    if (datumFehler) { setFehler(datumFehler); return }
+    const jahr = chiffreJahr(chiffre)
+    if (s.art === 'erst' && jahr && Number(kopf.datum.slice(0, 4)) !== jahr) { setFehler(`Das Erstgespräch muss im Jahr der Chiffre (${jahr}) liegen. Für ein Gespräch aus einem anderen Jahr bitte in der Liste ein neues Erstgespräch mit diesem Datum anlegen.`); return }
     setFehler('')
     try {
       if (!geprueft) {
@@ -129,6 +133,7 @@ export default function ProtokollBearbeiten() {
           <div>
             <p className="overline"><Link href="/protokolle" className="no-underline">Protokolle</Link> · {chiffre}</p>
             <h1 className="mt-2 font-heading text-heading">{art.titel} Nr. {s.nr}</h1>
+            {kopf.in_ausbildung && <p className="mt-1 text-sm text-text-muted">{AUSBILDUNG_VERMERK}</p>}
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-sm text-text-subtle" aria-live="polite">{entwurf ? speicherStand : ''}</span>
@@ -147,7 +152,7 @@ export default function ProtokollBearbeiten() {
 
         <div className="karte grid grid-cols-2 gap-4 sm:grid-cols-4">
           <Anzeige titel="Chiffre" wert={chiffre} />
-          <label>Datum<input type="date" value={kopf.datum} disabled={!bearbeitbar} onChange={(e) => aendereKopf({ datum: e.target.value })} /></label>
+          <label>Datum<input type="date" min={`${PROTOKOLL_AB_JAHR}-01-01`} value={kopf.datum} disabled={!bearbeitbar} onChange={(e) => aendereKopf({ datum: e.target.value })} /></label>
           <label>Beginn<input type="time" value={kopf.beginn ?? ''} disabled={!bearbeitbar} onChange={(e) => aendereKopf({ beginn: e.target.value || null })} /></label>
           <label>Ende<input type="time" value={kopf.ende ?? ''} disabled={!bearbeitbar} onChange={(e) => aendereKopf({ ende: e.target.value || null })} /></label>
           <label>Vorbereitung (Min.)<input type="number" min={0} step={5} value={kopf.vorbereitung_min} disabled={!bearbeitbar} onChange={(e) => aendereKopf({ vorbereitung_min: Number(e.target.value) || 0 })} /></label>
@@ -162,6 +167,7 @@ export default function ProtokollBearbeiten() {
 
         <div className="space-y-2 pt-2">
           <label className="flex items-center gap-3 text-sm font-normal text-text"><input type="checkbox" checked={kopf.prozess_abgeschlossen} disabled={!bearbeitbar} onChange={(e) => aendereKopf({ prozess_abgeschlossen: e.target.checked })} /> Beratungsprozess mit diesem Gespräch abgeschlossen</label>
+          <label className="flex items-center gap-3 text-sm font-normal text-text"><input type="checkbox" checked={kopf.in_ausbildung} disabled={!bearbeitbar} onChange={(e) => aendereKopf({ in_ausbildung: e.target.checked })} /> In Ausbildung (Vermerk im Ausdruck und in der Nachweisliste)</label>
           <label className="flex items-center gap-3 text-sm font-normal text-text"><input type="checkbox" checked={inhalt.supervision} disabled={!bearbeitbar} onChange={(e) => { geaendert.current = true; setInhalt({ ...inhalt, supervision: e.target.checked }) }} /> Unterschriftsfeld für Supervision im Ausdruck</label>
         </div>
 
@@ -218,6 +224,7 @@ export default function ProtokollBearbeiten() {
       <div className="nur-druck">
         <div className="flex items-start justify-between border-b border-border pb-2 text-xs text-text-muted"><span>{brand.appName} · vertraulich (§ 119 GewO)</span><img src="/brand/bildmarke.svg" alt="" width={36} height={27} /></div>
         <h1 className="mt-3 font-heading text-2xl text-heading">{art.titel}</h1>
+        {kopf.in_ausbildung && <p className="mt-1 text-sm font-semibold">{AUSBILDUNG_VERMERK}</p>}
         <table className="druck-tabelle mt-3 w-full text-xs">
           <tbody>
             <tr><th>Protokoll-Nr.</th><th>Chiffre</th><th>Datum</th><th>Zeit (von–bis)</th><th>Dauer</th><th>Einheiten (50 Min.)</th></tr>

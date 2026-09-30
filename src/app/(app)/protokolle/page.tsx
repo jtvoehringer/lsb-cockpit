@@ -2,9 +2,9 @@
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useEffect, useMemo, useState } from 'react'
-import { datum, stunden, zahl } from '@/lib/format'
+import { datum, heute, stunden, zahl } from '@/lib/format'
 import { ladeAkten, ladeSitzungen, neueAkte, neueSitzung, type Akte, type Sitzung } from '@/lib/protokolle/daten'
-import { ART, minuten } from '@/lib/protokolle/modell'
+import { ART, minuten, pruefeDatum, PROTOKOLL_AB_JAHR } from '@/lib/protokolle/modell'
 import { protokolliere } from '@/lib/konto'
 import { useTresor } from '@/lib/tresor'
 
@@ -15,6 +15,7 @@ export default function Protokolle() {
   const [sitzungen, setSitzungen] = useState<Sitzung[] | null>(null)
   const [filter, setFilter] = useState({ chiffre: '', von: '', bis: '' })
   const [folgeAkte, setFolgeAkte] = useState('')
+  const [neu, setNeu] = useState({ datum: heute(), ausbildung: false })
   const [arbeitet, setArbeitet] = useState(false)
   const [fehler, setFehler] = useState('')
 
@@ -30,11 +31,19 @@ export default function Protokolle() {
     (!filter.chiffre || (chiffreVon.get(s.akte_id) ?? '').toLowerCase().includes(filter.chiffre.toLowerCase())) &&
     (!filter.von || s.datum >= filter.von) && (!filter.bis || s.datum <= filter.bis))
 
+  /** Chiffre wählen: Häkchen „in Ausbildung“ vom letzten Protokoll dieser Chiffre übernehmen */
+  function waehleFolgeAkte(id: string) {
+    setFolgeAkte(id)
+    const letzte = (sitzungen ?? []).filter((s) => s.akte_id === id).sort((a, b) => b.datum.localeCompare(a.datum))[0]
+    if (letzte) setNeu((n) => ({ ...n, ausbildung: letzte.in_ausbildung }))
+  }
+
   async function erstgespraech() {
+    const f = pruefeDatum(neu.datum); if (f) { setFehler(f); return }
     setArbeitet(true); setFehler('')
     try {
-      const akte = await neueAkte(tresor.schluessel('zone_c'))
-      const s = await neueSitzung(akte.id, 'erst')
+      const akte = await neueAkte(tresor.schluessel('zone_c'), {}, Number(neu.datum.slice(0, 4)))
+      const s = await neueSitzung(akte.id, 'erst', { datum: neu.datum, in_ausbildung: neu.ausbildung })
       await protokolliere('akte_angelegt', akte.chiffre)
       router.push(`/protokolle/${s.id}`)
     } catch (e) { setFehler((e as Error).message); setArbeitet(false) }
@@ -42,9 +51,12 @@ export default function Protokolle() {
 
   async function beratungsgespraech() {
     if (!folgeAkte) { setFehler('Bitte zuerst die Chiffre wählen.'); return }
+    const f = pruefeDatum(neu.datum); if (f) { setFehler(f); return }
+    const erst = (sitzungen ?? []).filter((s) => s.akte_id === folgeAkte).map((s) => s.datum).sort()[0]
+    if (erst && neu.datum < erst) { setFehler(`Das Datum liegt vor dem ersten Gespräch dieser Chiffre (${datum(erst)}).`); return }
     setArbeitet(true); setFehler('')
     try {
-      const s = await neueSitzung(folgeAkte, 'folge')
+      const s = await neueSitzung(folgeAkte, 'folge', { datum: neu.datum, in_ausbildung: neu.ausbildung })
       router.push(`/protokolle/${s.id}`)
     } catch (e) { setFehler((e as Error).message); setArbeitet(false) }
   }
@@ -56,7 +68,7 @@ export default function Protokolle() {
         <div className="flex flex-wrap items-end gap-2">
           <button className="btn btn-cta" onClick={erstgespraech} disabled={arbeitet}>+ Erstgespräch (neue Chiffre)</button>
           <label className="min-w-44">Beratungsgespräch zu
-            <select value={folgeAkte} onChange={(e) => setFolgeAkte(e.target.value)} className="mt-1 block w-full rounded-md border border-border-input bg-surface px-3 py-2.5 text-base">
+            <select value={folgeAkte} onChange={(e) => waehleFolgeAkte(e.target.value)} className="mt-1 block w-full rounded-md border border-border-input bg-surface px-3 py-2.5 text-base">
               <option value="">Chiffre wählen …</option>
               {akten.filter((a) => a.status === 'offen').map((a) => <option key={a.id} value={a.id}>{a.chiffre}</option>)}
             </select>
@@ -64,6 +76,11 @@ export default function Protokolle() {
           <button className="btn btn-primary" onClick={beratungsgespraech} disabled={arbeitet}>+ Beratungsgespräch</button>
         </div>
       </div>
+      <div className="flex flex-wrap items-end justify-end gap-4 text-sm">
+        <label>Datum des Gesprächs<input type="date" value={neu.datum} min={`${PROTOKOLL_AB_JAHR}-01-01`} max={`${new Date().getFullYear()}-12-31`} onChange={(e) => setNeu({ ...neu, datum: e.target.value })} /></label>
+        <label className="flex items-center gap-2 pb-2.5 font-normal text-text" title="Beratung vor der Gewerbeberechtigung, z. B. als Praxisnachweis für die Ausbildung – bekommt einen Vermerk im Ausdruck und in der Nachweisliste"><input type="checkbox" checked={neu.ausbildung} onChange={(e) => setNeu({ ...neu, ausbildung: e.target.checked })} /> in Ausbildung</label>
+      </div>
+      <p className="-mt-3 text-right text-xs text-text-subtle">Frühere Gespräche (ab {PROTOKOLL_AB_JAHR}) nachtragen: Datum wählen – die Chiffre bekommt das Jahr des Erstgesprächs.</p>
       {fehler && <p className="fehler" role="alert">{fehler}</p>}
       {ohneEinwilligung.size > 0 && <p className="hinweis text-sm">Bei {ohneEinwilligung.size} offenen Akte{ohneEinwilligung.size === 1 ? '' : 'n'} ist noch keine Einwilligung zur Verarbeitung der Gesundheitsdaten erfasst. Nachtragen im <Link href="/register">Register</Link> unter „Stammdaten“.</p>}
 
@@ -86,7 +103,7 @@ export default function Protokolle() {
                   <td className="px-4 py-3 tabular-nums"><Link href={`/protokolle/${s.id}`} className="no-underline">{s.nr}</Link></td>
                   <td className="px-4 tabular-nums"><Link href={`/protokolle/${s.id}`} className="no-underline">{datum(s.datum)}</Link></td>
                   <td className="px-4 tabular-nums">{chiffreVon.get(s.akte_id)}{ohneEinwilligung.has(s.akte_id) && <span title="Einwilligung (Art. 9 DSGVO) noch nicht erfasst – im Register unter „Stammdaten“" className="ml-2 whitespace-nowrap rounded-full bg-sand px-2 py-0.5 text-xs">Einwilligung fehlt</span>}</td>
-                  <td className="px-4">{ART[s.art].kurz}</td>
+                  <td className="px-4">{ART[s.art].kurz}{s.in_ausbildung && <span title="Beratung in Ausbildung" className="ml-2 whitespace-nowrap rounded-full bg-sage/30 px-2 py-0.5 text-xs text-forest-deep">Ausbildung</span>}</td>
                   <td className="px-4 text-right tabular-nums">{m ? `${stunden(m)} h` : '–'}</td>
                   <td className="px-4 text-right tabular-nums">{m ? zahl(s.arbeitseinheiten ?? 0) : '–'}</td>
                   <td className="px-4">{s.protokoll_status === 'abgeschlossen'

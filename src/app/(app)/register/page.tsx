@@ -6,9 +6,10 @@ import { Bestaetigung } from '@/components/Bestaetigung'
 import { AuskunftAnsicht } from '@/components/AuskunftAnsicht'
 import { StammdatenPanel } from '@/components/StammdatenPanel'
 import { TeilnahmeAnsicht } from '@/components/TeilnahmeAnsicht'
-import { datum } from '@/lib/format'
+import { datum, heute } from '@/lib/format'
 import { protokolliere } from '@/lib/konto'
 import { aktualisiereRegister, ladeAkten, ladeRegister, ladeSitzungen, neueAkte, neueSitzung, type Akte, type RegisterInhalt } from '@/lib/protokolle/daten'
+import { pruefeDatum, PROTOKOLL_AB_JAHR } from '@/lib/protokolle/modell'
 import { useTresor } from '@/lib/tresor'
 
 // Register (Zone C): Chiffre ↔ Person. Anzeige erst nach erneuter Bestätigung – Passkey oder Passphrase (E-04), Sperre nach 5 Minuten.
@@ -28,7 +29,7 @@ export default function Register() {
   const [stamm, setStamm] = useState<Zeile | null>(null)
   const [auskunft, setAuskunft] = useState<string | null>(null)
   const [teilnahme, setTeilnahme] = useState<Zeile | null>(null)
-  const [neu, setNeu] = useState({ name: '', notiz: '' })
+  const [neu, setNeu] = useState({ name: '', notiz: '', datum: heute(), ausbildung: false })
   const aktivitaet = useRef(Date.now())
 
   const sperren = useCallback(() => { setOffen(false); setZeilen([]); setBearbeiten(null); setStamm(null); setSuche('') }, [])
@@ -62,12 +63,13 @@ export default function Register() {
 
   async function anlegen(mitErstgespraech: boolean) {
     if (!neu.name.trim()) { setFehler('Bitte einen Namen eingeben.'); return }
+    const f = pruefeDatum(neu.datum); if (f) { setFehler(f); return }
     setFehler(''); setArbeitet(true)
     try {
-      const akte = await neueAkte(tresor.schluessel('zone_c'), { name: neu.name.trim(), notiz: neu.notiz.trim() || undefined })
+      const akte = await neueAkte(tresor.schluessel('zone_c'), { name: neu.name.trim(), notiz: neu.notiz.trim() || undefined }, Number(neu.datum.slice(0, 4)))
       await protokolliere('akte_angelegt', akte.chiffre)
-      setNeu({ name: '', notiz: '' })
-      if (mitErstgespraech) { const s = await neueSitzung(akte.id, 'erst'); router.push(`/protokolle/${s.id}`); return }
+      setNeu({ name: '', notiz: '', datum: heute(), ausbildung: false })
+      if (mitErstgespraech) { const s = await neueSitzung(akte.id, 'erst', { datum: neu.datum, in_ausbildung: neu.ausbildung }); router.push(`/protokolle/${s.id}`); return }
       await laden()
     } catch (err) { setFehler((err as Error).message) } finally { setArbeitet(false) }
   }
@@ -105,12 +107,14 @@ export default function Register() {
         <div className="grid gap-3 sm:grid-cols-2">
           <label>Name<input value={neu.name} onChange={(e) => setNeu({ ...neu, name: e.target.value })} autoComplete="off" /></label>
           <label>Hinweis (optional)<input value={neu.notiz} onChange={(e) => setNeu({ ...neu, notiz: e.target.value })} autoComplete="off" /></label>
+          <label>Erstgespräch am<input type="date" value={neu.datum} min={`${PROTOKOLL_AB_JAHR}-01-01`} max={`${new Date().getFullYear()}-12-31`} onChange={(e) => setNeu({ ...neu, datum: e.target.value })} /></label>
+          <label className="flex items-center gap-2 self-end pb-2.5 text-sm font-normal text-text"><input type="checkbox" checked={neu.ausbildung} onChange={(e) => setNeu({ ...neu, ausbildung: e.target.checked })} /> in Ausbildung (Vermerk im Protokoll)</label>
         </div>
         <div className="flex flex-wrap gap-2">
           <button className="btn btn-cta" disabled={arbeitet} onClick={() => void anlegen(true)}>Anlegen und Erstgespräch beginnen</button>
           <button className="btn btn-ghost" disabled={arbeitet} onClick={() => void anlegen(false)}>Nur anlegen</button>
         </div>
-        <p className="text-xs text-text-subtle">Die Chiffre wird automatisch vergeben. Der Name steht nur verschlüsselt im Register.</p>
+        <p className="text-xs text-text-subtle">Die Chiffre wird automatisch vergeben (mit dem Jahr des Erstgesprächs – auch für Nachträge ab {PROTOKOLL_AB_JAHR}). Der Name steht nur verschlüsselt im Register.</p>
       </div>
 
       {stamm && <StammdatenPanel key={stamm.id} zeile={stamm} schliessen={() => setStamm(null)} gespeichert={laden} />}

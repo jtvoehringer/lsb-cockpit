@@ -12,12 +12,12 @@ export type Sitzung = {
   id: string; akte_id: string; nr: number; art: Art; datum: string; beginn: string | null; ende: string | null
   arbeitseinheiten: number | null; vorbereitung_min: number; nachbereitung_min: number; prozess_abgeschlossen: boolean
   protokoll_status: 'entwurf' | 'abgeschlossen'; abgeschlossen_am: string | null; entwurf_enc: string | null
-  herkunft: string | null; erstellt_am: string; geaendert_am: string
+  in_ausbildung: boolean; herkunft: string | null; erstellt_am: string; geaendert_am: string
 }
 export type Version = { id: string; version: number; inhalt_enc: string; erstellt_am: string }
 export type RegisterInhalt = { akte_id: string; chiffre: string; name?: string; adresse?: string; kuerzel_alt?: string; notiz?: string; stammdaten_id?: string }
 
-const SITZUNG_FELDER = 'id, akte_id, nr, art, datum, beginn, ende, arbeitseinheiten, vorbereitung_min, nachbereitung_min, prozess_abgeschlossen, protokoll_status, abgeschlossen_am, entwurf_enc, herkunft, erstellt_am, geaendert_am'
+const SITZUNG_FELDER = 'id, akte_id, nr, art, datum, beginn, ende, arbeitseinheiten, vorbereitung_min, nachbereitung_min, prozess_abgeschlossen, protokoll_status, abgeschlossen_am, entwurf_enc, in_ausbildung, herkunft, erstellt_am, geaendert_am'
 const kurzZeit = (t: string | null) => (t ? t.slice(0, 5) : null)
 const normalisiere = (s: Sitzung): Sitzung => ({ ...s, beginn: kurzZeit(s.beginn), ende: kurzZeit(s.ende), arbeitseinheiten: s.arbeitseinheiten === null ? null : Number(s.arbeitseinheiten) })
 
@@ -39,7 +39,7 @@ export async function ladeAkten(): Promise<Akte[]> {
   return data as Akte[]
 }
 
-/** Neue Akte mit automatischer Chiffre; legt zugleich einen verschlüsselten Registereintrag an (Zone C). */
+/** Neue Akte mit automatischer Chiffre (JJ = Jahr des Erstkontakts, auch 2024/2025 nachträglich); legt zugleich einen verschlüsselten Registereintrag an (Zone C). */
 export async function neueAkte(kC: CryptoKey, zusatz: Omit<RegisterInhalt, 'akte_id' | 'chiffre'> = {}, jahr = new Date().getFullYear()): Promise<Akte> {
   const p = await praxis()
   for (let versuch = 0; versuch < 5; versuch++) {
@@ -100,13 +100,13 @@ export async function neueSitzung(akteId: string, art: Art, vorgaben: Partial<Si
     praxis_id: p.id, akte_id: akteId, art, nr: vorgaben.nr ?? (await naechsteNr()), datum,
     beginn: vorgaben.beginn ?? null, ende: vorgaben.ende ?? null,
     vorbereitung_min: vorgaben.vorbereitung_min ?? 15, nachbereitung_min: vorgaben.nachbereitung_min ?? 15,
-    herkunft: vorgaben.herkunft ?? null,
+    in_ausbildung: vorgaben.in_ausbildung ?? false, herkunft: vorgaben.herkunft ?? null,
   }).select(SITZUNG_FELDER).single()
   if (error) throw error
   return normalisiere(data as Sitzung)
 }
 
-type Kopf = Pick<Sitzung, 'datum' | 'beginn' | 'ende' | 'vorbereitung_min' | 'nachbereitung_min' | 'prozess_abgeschlossen'>
+type Kopf = Pick<Sitzung, 'datum' | 'beginn' | 'ende' | 'vorbereitung_min' | 'nachbereitung_min' | 'prozess_abgeschlossen' | 'in_ausbildung'>
 
 function kopfDaten(k: Kopf) {
   return { ...k, arbeitseinheiten: einheiten(minuten(k.beginn, k.ende)) || null, geaendert_am: new Date().toISOString() }

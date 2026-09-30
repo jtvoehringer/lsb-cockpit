@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { CHIFFRE_MUSTER, einheiten, minuten, naechsteChiffre } from './modell'
+import { CHIFFRE_MUSTER, chiffreJahr, einheiten, minuten, naechsteChiffre, pruefeDatum } from './modell'
 
 describe('Zeiten und Einheiten', () => {
   it('rechnet Dauer und Einheiten zu 50 Minuten', () => {
@@ -23,5 +23,25 @@ describe('Chiffre', () => {
   })
   it('Testpraxis: Präfix T-', () => {
     expect(naechsteChiffre(['T-K-26-0003-AB'], 2026, true).startsWith('T-K-26-0004-')).toBe(true)
+  })
+})
+
+describe('Nachträge aus der Ausbildungszeit (ab 2024)', () => {
+  const heute = new Date(2026, 8, 30)
+  it('Chiffre mit Jahr des Erstkontakts, Zählung je Jahr getrennt', () => {
+    const vorhandene = ['K-26-0001-AB', 'K-24-0002-CD']
+    expect(naechsteChiffre(vorhandene, 2024).startsWith('K-24-0003-')).toBe(true)
+    expect(naechsteChiffre(vorhandene, 2025).startsWith('K-25-0001-')).toBe(true)
+    expect(chiffreJahr('K-25-0001-XY')).toBe(2025)
+    expect(chiffreJahr('T-K-24-0001-XY')).toBe(2024)
+    expect(chiffreJahr('unsinn')).toBeNull()
+  })
+  it('Datum: ab 2024, nicht in künftigen Jahren', () => {
+    expect(pruefeDatum('2024-01-01', heute)).toBeNull()
+    expect(pruefeDatum('2025-06-15', heute)).toBeNull()
+    expect(pruefeDatum('2026-12-31', heute)).toBeNull()
+    expect(pruefeDatum('2023-12-31', heute)).toMatch(/ab 2024/)
+    expect(pruefeDatum('2027-01-01', heute)).toMatch(/künftigen/)
+    expect(pruefeDatum('', heute)).toMatch(/gültiges/)
   })
 })

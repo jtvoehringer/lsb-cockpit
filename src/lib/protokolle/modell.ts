@@ -70,4 +70,25 @@ function gleichverteilt(): number {
   }
 }
 
+/** Früheste zulässige Beratung: Protokolle aus der Ausbildungszeit ab 2024 können nachgetragen werden (Praxisnachweis). */
+export const PROTOKOLL_AB_JAHR = 2024
+
+/** Jahr (vierstellig) aus der Chiffre, z. B. K-25-0003-AB → 2025 */
+export function chiffreJahr(chiffre: string): number | null {
+  const m = CHIFFRE_MUSTER.exec(chiffre)
+  return m ? 2000 + Number(m[2]) : null
+}
+
+/** Prüft ein Beratungsdatum (JJJJ-MM-TT): nicht vor PROTOKOLL_AB_JAHR und nicht in einem künftigen Jahr. Liefert Fehlertext oder null. */
+export function pruefeDatum(datum: string, heute = new Date()): string | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(datum)) return 'Bitte ein gültiges Datum eingeben.'
+  const j = Number(datum.slice(0, 4))
+  if (j < PROTOKOLL_AB_JAHR) return `Protokolle sind ab ${PROTOKOLL_AB_JAHR} möglich.`
+  if (j > heute.getFullYear()) return 'Das Datum liegt in einem künftigen Jahr.'
+  return null
+}
+
+/** Vermerk für Protokolle mit Häkchen „in Ausbildung“ (Ausdruck und Nachweisliste) */
+export const AUSBILDUNG_VERMERK = 'Vermerk: Beratung im Rahmen der Ausbildung zur Lebens- und Sozialberaterin (vor Erteilung der Gewerbeberechtigung)'
+
 export const leererInhalt = (): Inhalt => ({ felder: {}, supervision: false })
