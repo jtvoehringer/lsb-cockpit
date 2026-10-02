@@ -3,8 +3,8 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useEffect, useMemo, useState } from 'react'
 import { datum, heute, stunden, zahl } from '@/lib/format'
-import { ladeAkten, ladeSitzungen, neueAkte, neueSitzung, type Akte, type Sitzung } from '@/lib/protokolle/daten'
-import { ART, chiffreJahr, minuten, pruefeDatum, PROTOKOLL_AB_JAHR } from '@/lib/protokolle/modell'
+import { chiffreAnJahrAnpassen, ladeAkten, ladeSitzungen, neueAkte, neueSitzung, type Akte, type Sitzung } from '@/lib/protokolle/daten'
+import { ART, minuten, pruefeDatum, PROTOKOLL_AB_JAHR } from '@/lib/protokolle/modell'
 import { protokolliere } from '@/lib/konto'
 import { useTresor } from '@/lib/tresor'
 
@@ -54,11 +54,13 @@ export default function Protokolle() {
     const f = pruefeDatum(neu.datum); if (f) { setFehler(f); return }
     const erst = (sitzungen ?? []).filter((s) => s.akte_id === folgeAkte).map((s) => s.datum).sort()[0]
     if (erst && neu.datum < erst) { setFehler(`Das Datum liegt vor dem ersten Gespräch dieser Chiffre (${datum(erst)}).`); return }
-    // Akte ohne Protokolle (z. B. im Register „Nur anlegen“): das erste Gespräch ist das Erstgespräch – im Jahr der Chiffre
-    const jahr = chiffreJahr(akten.find((a) => a.id === folgeAkte)?.chiffre ?? '')
-    if (!erst && jahr && Number(neu.datum.slice(0, 4)) !== jahr) { setFehler(`Diese Chiffre hat noch kein Gespräch – das Erstgespräch muss im Jahr der Chiffre (${jahr}) liegen.`); return }
     setArbeitet(true); setFehler('')
     try {
+      // Akte ohne Protokolle (z. B. im Register „Nur anlegen“): das erste Gespräch ist das Erstgespräch – die Chiffre folgt seinem Jahr
+      if (!erst) {
+        const w = await chiffreAnJahrAnpassen(tresor.schluessel('zone_c'), folgeAkte, Number(neu.datum.slice(0, 4)))
+        if (w) await protokolliere('chiffre_geaendert', `${w.alt} → ${w.neu}`)
+      }
       const s = await neueSitzung(folgeAkte, erst ? 'folge' : 'erst', { datum: neu.datum, in_ausbildung: neu.ausbildung })
       router.push(`/protokolle/${s.id}`)
     } catch (e) { setFehler((e as Error).message); setArbeitet(false) }
@@ -66,24 +68,27 @@ export default function Protokolle() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div><p className="overline">Dokumentation</p><h1 className="mt-2 font-heading text-heading">Protokolle</h1></div>
-        <div className="flex flex-wrap items-end gap-2">
-          <button className="btn btn-cta" onClick={erstgespraech} disabled={arbeitet}>+ Erstgespräch (neue Chiffre)</button>
+      <div><p className="overline">Dokumentation</p><h1 className="mt-2 font-heading text-heading">Protokolle</h1></div>
+
+      <div className="karte space-y-4">
+        <h2 className="font-heading text-heading">Neues Gespräch</h2>
+        <div className="flex flex-wrap items-end gap-4">
+          <label>1. Datum des Gesprächs<input type="date" value={neu.datum} min={`${PROTOKOLL_AB_JAHR}-01-01`} max={`${new Date().getFullYear()}-12-31`} onChange={(e) => setNeu({ ...neu, datum: e.target.value })} /></label>
+          <label className="flex items-center gap-2 pb-2.5 text-sm font-normal text-text" title="Beratung vor der Gewerbeberechtigung, z. B. als Praxisnachweis für die Ausbildung – bekommt einen Vermerk im Ausdruck und in der Nachweisliste"><input type="checkbox" checked={neu.ausbildung} onChange={(e) => setNeu({ ...neu, ausbildung: e.target.checked })} /> in Ausbildung</label>
+        </div>
+        <p className="text-xs text-text-subtle">Die Chiffre bekommt immer das Jahr des Erstgesprächs – Datum 2024 ergibt K-24-…. Nachträge sind ab {PROTOKOLL_AB_JAHR} möglich.</p>
+        <div className="flex flex-wrap items-end gap-2 border-t border-border pt-4">
+          <button className="btn btn-cta" onClick={erstgespraech} disabled={arbeitet}>2. + Erstgespräch (neue Chiffre)</button>
+          <span className="px-2 pb-2.5 text-sm text-text-subtle">oder</span>
           <label className="min-w-44">Beratungsgespräch zu
             <select value={folgeAkte} onChange={(e) => waehleFolgeAkte(e.target.value)} className="mt-1 block w-full rounded-md border border-border-input bg-surface px-3 py-2.5 text-base">
               <option value="">Chiffre wählen …</option>
               {akten.filter((a) => a.status === 'offen').map((a) => <option key={a.id} value={a.id}>{a.chiffre}{(sitzungen ?? []).some((s) => s.akte_id === a.id) ? '' : ' (noch kein Gespräch → Erstgespräch)'}</option>)}
             </select>
           </label>
-          <button className="btn btn-primary" onClick={beratungsgespraech} disabled={arbeitet}>+ Beratungsgespräch</button>
+          <button className="btn btn-primary" onClick={beratungsgespraech} disabled={arbeitet}>2. + Beratungsgespräch</button>
         </div>
       </div>
-      <div className="flex flex-wrap items-end justify-end gap-4 text-sm">
-        <label>Datum des Gesprächs<input type="date" value={neu.datum} min={`${PROTOKOLL_AB_JAHR}-01-01`} max={`${new Date().getFullYear()}-12-31`} onChange={(e) => setNeu({ ...neu, datum: e.target.value })} /></label>
-        <label className="flex items-center gap-2 pb-2.5 font-normal text-text" title="Beratung vor der Gewerbeberechtigung, z. B. als Praxisnachweis für die Ausbildung – bekommt einen Vermerk im Ausdruck und in der Nachweisliste"><input type="checkbox" checked={neu.ausbildung} onChange={(e) => setNeu({ ...neu, ausbildung: e.target.checked })} /> in Ausbildung</label>
-      </div>
-      <p className="-mt-3 text-right text-xs text-text-subtle">Frühere Gespräche (ab {PROTOKOLL_AB_JAHR}) nachtragen: Datum wählen – die Chiffre bekommt das Jahr des Erstgesprächs.</p>
       {fehler && <p className="fehler" role="alert">{fehler}</p>}
       {ohneEinwilligung.size > 0 && <p className="hinweis text-sm">Bei {ohneEinwilligung.size} offenen Akte{ohneEinwilligung.size === 1 ? '' : 'n'} ist noch keine Einwilligung zur Verarbeitung der Gesundheitsdaten erfasst. Nachtragen im <Link href="/register">Register</Link> unter „Stammdaten“.</p>}
 

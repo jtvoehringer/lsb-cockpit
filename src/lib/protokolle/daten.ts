@@ -3,7 +3,7 @@
 // Register (Chiffre ↔ Person) mit K_C. Der Server sieht nie Klartext der Inhalte.
 import { aad, entschluessele, verschluessele } from '../crypto/kern'
 import { supabaseBrowser } from '../supabase/client'
-import { einheiten, minuten, naechsteChiffre, type Art, type Inhalt } from './modell'
+import { chiffreJahr, einheiten, minuten, naechsteChiffre, type Art, type Inhalt } from './modell'
 
 const sb = () => supabaseBrowser()
 
@@ -55,6 +55,31 @@ export async function neueAkte(kC: CryptoKey, zusatz: Omit<RegisterInhalt, 'akte
     return data as Akte
   }
   throw new Error('Chiffre konnte nicht vergeben werden')
+}
+
+/**
+ * Chiffre strikt an das Jahr des Erstgesprächs anpassen (z. B. Datum 2024 → K-24-…). Ändert die Akte und den verschlüsselten
+ * Registereintrag. Liefert die neue Chiffre oder null, wenn sie schon passt. Die Datenbank lässt das nur bei offenen Akten ohne Honorarnote zu.
+ */
+export async function chiffreAnJahrAnpassen(kC: CryptoKey, akteId: string, jahr: number): Promise<{ alt: string; neu: string } | null> {
+  const p = await praxis()
+  for (let versuch = 0; versuch < 5; versuch++) {
+    const akten = await ladeAkten()
+    const akte = akten.find((a) => a.id === akteId)
+    if (!akte) throw new Error('Akte nicht gefunden')
+    if (chiffreJahr(akte.chiffre) === jahr) return null
+    const neu = naechsteChiffre(akten.map((a) => a.chiffre), jahr, p.test)
+    const { error } = await sb().from('akte').update({ chiffre: neu }).eq('id', akteId)
+    if (error?.code === '23505') continue // Chiffre inzwischen vergeben – neu versuchen
+    if (error) throw new Error(error.message)
+    const eintrag = (await ladeRegister(kC)).find((e) => e.akte_id === akteId)
+    if (eintrag) {
+      const { id, ...inhalt } = eintrag
+      await aktualisiereRegister(kC, id, { ...inhalt, chiffre: neu })
+    }
+    return { alt: akte.chiffre, neu }
+  }
+  throw new Error('Chiffre konnte nicht angepasst werden')
 }
 
 export async function ladeRegister(kC: CryptoKey): Promise<(RegisterInhalt & { id: string })[]> {

@@ -4,7 +4,7 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
 import type { Tresorinhalt, Zone } from './crypto/kern'
 
-export const SPERRE_NACH_MIN = 10
+export const SPERRE_NACH_MIN = 60 // 02.10.2026 auf Wunsch der Beraterin von 10 auf 60 Minuten
 
 type TresorKontext = {
   offen: boolean

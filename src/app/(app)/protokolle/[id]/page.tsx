@@ -7,7 +7,7 @@ import brand from '@/config/brand.config'
 import { datum, stunden, zahl, zeitpunkt } from '@/lib/format'
 import { protokolliere } from '@/lib/konto'
 import {
-  entschluesseleVersion, entwurfLoeschen, ladeAkten, ladeInhalt, ladeRegister, ladeSitzung, speichereEntwurf, versionAnhaengen,
+  chiffreAnJahrAnpassen, entschluesseleVersion, entwurfLoeschen, ladeAkten, ladeInhalt, ladeRegister, ladeSitzung, speichereEntwurf, versionAnhaengen,
   type Sitzung, type Version,
 } from '@/lib/protokolle/daten'
 import { pruefeText, TREFFER_TITEL, type Treffer } from '@/lib/protokolle/pseudonym'
@@ -48,13 +48,20 @@ export default function ProtokollBearbeiten() {
   const entwurf = s?.protokoll_status === 'entwurf'
   const bearbeitbar = entwurf || korrektur
 
+  /** Chiffre folgt strikt dem Jahr des Erstgesprächs (Datum 2024 → K-24-…) */
+  const chiffreAbgleichen = useCallback(async (d: string) => {
+    if (!s || s.art !== 'erst' || pruefeDatum(d) || chiffreJahr(chiffre) === Number(d.slice(0, 4))) return
+    const w = await chiffreAnJahrAnpassen(tresor.schluessel('zone_c'), s.akte_id, Number(d.slice(0, 4)))
+    if (w) { setChiffre(w.neu); await protokolliere('chiffre_geaendert', `${w.alt} → ${w.neu}`) }
+  }, [s, chiffre, tresor])
+
   // Entwurf automatisch speichern (verschlüsselt); Korrekturen erst mit „Korrektur speichern“
   const speichern = useCallback(async () => {
     if (!s || !kopf || !entwurf || !geaendert.current) return
     geaendert.current = false
-    try { await speichereEntwurf(tresor.schluessel('zone_b'), s, kopf, inhalt); setSpeicherStand('gespeichert (verschlüsselt)') }
+    try { await chiffreAbgleichen(kopf.datum); await speichereEntwurf(tresor.schluessel('zone_b'), s, kopf, inhalt); setSpeicherStand('gespeichert (verschlüsselt)') }
     catch (e) { setSpeicherStand(''); setFehler((e as Error).message) }
-  }, [s, kopf, inhalt, entwurf, tresor])
+  }, [s, kopf, inhalt, entwurf, tresor, chiffreAbgleichen])
 
   useEffect(() => {
     if (!geaendert.current || !entwurf) return
@@ -86,10 +93,9 @@ export default function ProtokollBearbeiten() {
     if (fehlt.length) { setFehler(`Bitte ausfüllen: ${fehlt.join(', ')}`); return }
     const datumFehler = pruefeDatum(kopf.datum)
     if (datumFehler) { setFehler(datumFehler); return }
-    const jahr = chiffreJahr(chiffre)
-    if (s.art === 'erst' && jahr && Number(kopf.datum.slice(0, 4)) !== jahr) { setFehler(`Das Erstgespräch muss im Jahr der Chiffre (${jahr}) liegen. Für ein Gespräch aus einem anderen Jahr bitte in der Liste ein neues Erstgespräch mit diesem Datum anlegen.`); return }
     setFehler('')
     try {
+      await chiffreAbgleichen(kopf.datum)
       if (!geprueft) {
         const t = await pruefen()
         if (t.length) { setPruefung({ treffer: t, bestaetigt: false }); return }

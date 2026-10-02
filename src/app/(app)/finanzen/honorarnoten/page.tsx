@@ -2,7 +2,6 @@
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Bestaetigung } from '@/components/Bestaetigung'
 import { ladeEinstellungen, type PraxisEinstellungen } from '@/lib/einstellungen'
 import { datum, heute, zahl } from '@/lib/format'
 import { alsBezahlt, ausstellen, ladeHonorarnoten, offeneSitzungen, positionsBetrag, stornieren, summe, type Honorarnote, type Position } from '@/lib/finanzen/honorarnoten'
@@ -23,7 +22,6 @@ export default function Honorarnoten() {
   const [einst, setEinst] = useState<PraxisEinstellungen | null>(null)
   const [fehler, setFehler] = useState('')
   const [neu, setNeu] = useState<null | { akte_id: string; gewaehlt: Set<string>; satz: string; datum: string; name: string; adresse: string; sofort: '' | Zahlungsart }>(null)
-  const [registerFrage, setRegisterFrage] = useState(false)
   const [zahlung, setZahlung] = useState<null | { id: string; datum: string; art: Zahlungsart }>(null)
   const [arbeitet, setArbeitet] = useState(false)
   const kA = useCallback(() => tresor.schluessel('zone_a'), [tresor])
@@ -50,9 +48,7 @@ export default function Honorarnoten() {
     if (!neu) return
     setFehler('')
     const r = (await ladeRegister(tresor.schluessel('zone_c'))).find((x) => x.akte_id === neu.akte_id)
-    await protokolliere('register_geoeffnet', 'für Honorarnote')
     setNeu({ ...neu, name: r?.name ?? '', adresse: r?.adresse ?? '' })
-    setRegisterFrage(false)
     if (!r?.name) setFehler('Im Register ist zu dieser Chiffre noch kein Name eingetragen.')
   }
 
@@ -120,9 +116,7 @@ export default function Honorarnoten() {
             <div><span className="block text-[13px] font-medium text-text-muted">Summe</span><b className="mt-2 block text-xl tabular-nums">{euro(summe(positionen))}</b></div>
             <label className="sm:col-span-2">Empfänger:in (Name)<input value={neu.name} onChange={(e) => setNeu({ ...neu, name: e.target.value })} autoComplete="off" /></label>
             <div className="flex items-end">
-              {registerFrage
-                ? <div className="w-full"><Bestaetigung knopf="Aus Register holen" ereignis="register_geoeffnet" weiter={ausRegister} /></div>
-                : <button type="button" className="btn btn-ghost w-full" onClick={() => setRegisterFrage(true)}>Aus Register übernehmen …</button>}
+              <button type="button" className="btn btn-ghost w-full" onClick={() => void ausRegister().catch((x) => setFehler((x as Error).message))}>Aus Register übernehmen</button>
             </div>
             <label className="sm:col-span-3">Adresse (mehrzeilig möglich)<textarea value={neu.adresse} onChange={(e) => setNeu({ ...neu, adresse: e.target.value })} rows={3} className="mt-1 block w-full rounded-md border border-border-input bg-surface p-3" /></label>
             <label>Bereits bezahlt?<select value={neu.sofort} onChange={(e) => setNeu({ ...neu, sofort: e.target.value as '' | Zahlungsart })} className="mt-1 block w-full rounded-md border border-border-input bg-surface px-3 py-2.5">

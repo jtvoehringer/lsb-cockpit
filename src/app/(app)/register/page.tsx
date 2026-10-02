@@ -1,8 +1,7 @@
 'use client'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { Bestaetigung } from '@/components/Bestaetigung'
+import { useEffect, useState } from 'react'
 import { AuskunftAnsicht } from '@/components/AuskunftAnsicht'
 import { StammdatenPanel } from '@/components/StammdatenPanel'
 import { TeilnahmeAnsicht } from '@/components/TeilnahmeAnsicht'
@@ -12,15 +11,13 @@ import { aktualisiereRegister, ladeAkten, ladeRegister, ladeSitzungen, neueAkte,
 import { pruefeDatum, PROTOKOLL_AB_JAHR } from '@/lib/protokolle/modell'
 import { useTresor } from '@/lib/tresor'
 
-// Register (Zone C): Chiffre ↔ Person. Anzeige erst nach erneuter Bestätigung – Passkey oder Passphrase (E-04), Sperre nach 5 Minuten.
-// Namen erscheinen nie in Listen der Dokumentation (Zone B).
-const REGISTER_SPERRE_MIN = 5
+// Register (Zone C): Chiffre ↔ Person, verschlüsselt mit K_C. Seit 02.10.2026 ohne zusätzliche Bestätigung (Wunsch der Beraterin:
+// eine Person, Anmeldung mit 2FA + Passkey genügt). Namen erscheinen weiterhin nie in Listen der Dokumentation (Zone B).
 type Zeile = RegisterInhalt & { id: string; akte?: Akte; letzteSitzung?: string }
 
 export default function Register() {
   const tresor = useTresor()
   const router = useRouter()
-  const [offen, setOffen] = useState(false)
   const [arbeitet, setArbeitet] = useState(false)
   const [fehler, setFehler] = useState('')
   const [zeilen, setZeilen] = useState<Zeile[]>([])
@@ -30,18 +27,7 @@ export default function Register() {
   const [auskunft, setAuskunft] = useState<string | null>(null)
   const [teilnahme, setTeilnahme] = useState<Zeile | null>(null)
   const [neu, setNeu] = useState({ name: '', notiz: '', datum: heute(), ausbildung: false })
-  const aktivitaet = useRef(Date.now())
-
-  const sperren = useCallback(() => { setOffen(false); setZeilen([]); setBearbeiten(null); setStamm(null); setSuche('') }, [])
-
-  // Nach 5 Minuten ohne Eingabe wieder sperren
-  useEffect(() => {
-    if (!offen) return
-    const aktiv = () => { aktivitaet.current = Date.now() }
-    addEventListener('pointerdown', aktiv); addEventListener('keydown', aktiv)
-    const t = setInterval(() => { if (Date.now() - aktivitaet.current > REGISTER_SPERRE_MIN * 60_000) sperren() }, 10_000)
-    return () => { clearInterval(t); removeEventListener('pointerdown', aktiv); removeEventListener('keydown', aktiv) }
-  }, [offen, sperren])
+  useEffect(() => { laden().catch((e) => setFehler((e as Error).message)) }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function laden() {
     const [reg, akten, sitzungen] = await Promise.all([ladeRegister(tresor.schluessel('zone_c')), ladeAkten(), ladeSitzungen()])
@@ -74,20 +60,6 @@ export default function Register() {
     } catch (err) { setFehler((err as Error).message) } finally { setArbeitet(false) }
   }
 
-  if (!offen) return (
-    <div className="max-w-md space-y-6">
-      <div><p className="overline">Register</p><h1 className="mt-2 font-heading text-heading">Chiffren und Personen</h1></div>
-      <div className="karte space-y-4">
-        <p>Das Register verbindet Chiffren mit Namen. Es ist zusätzlich geschützt: bitte noch einmal bestätigen. Nach {REGISTER_SPERRE_MIN} Minuten ohne Eingabe sperrt es sich wieder.</p>
-        <Bestaetigung knopf="Register öffnen" ereignis="register_geoeffnet" autoFocus weiter={async (_t, mittel) => {
-          aktivitaet.current = Date.now()
-          await laden(); setOffen(true)
-          await protokolliere('register_geoeffnet', { passkey: 'Passkey', passphrase: 'Passphrase', notfall: 'Notfallblatt' }[mittel])
-        }} />
-      </div>
-    </div>
-  )
-
   if (auskunft) return <AuskunftAnsicht akteId={auskunft} schliessen={() => setAuskunft(null)} />
   if (teilnahme) return <TeilnahmeAnsicht akteId={teilnahme.akte_id} name={teilnahme.name ?? ''} chiffre={teilnahme.chiffre} schliessen={() => setTeilnahme(null)} />
 
@@ -97,8 +69,7 @@ export default function Register() {
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <div><p className="overline">Register · geöffnet</p><h1 className="mt-2 font-heading text-heading">Chiffren und Personen</h1></div>
-        <button className="btn btn-ghost" onClick={() => { void protokolliere('register_gesperrt'); sperren() }}>Register sperren</button>
+        <div><p className="overline">Register</p><h1 className="mt-2 font-heading text-heading">Chiffren und Personen</h1></div>
       </div>
       {fehler && <p className="fehler" role="alert">{fehler}</p>}
 
