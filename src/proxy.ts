@@ -58,5 +58,5 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: [{ source: '/((?!_next/static|_next/image|favicon.ico|apple-icon.png|brand/|asr/).*)', missing: [{ type: 'header', key: 'next-router-prefetch' }] }],
+  matcher: [{ source: '/((?!_next/static|_next/image|favicon.ico|apple-icon.png|manifest.webmanifest|brand/|asr/).*)', missing: [{ type: 'header', key: 'next-router-prefetch' }] }],
 }

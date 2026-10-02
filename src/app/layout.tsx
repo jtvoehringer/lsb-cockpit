@@ -12,6 +12,8 @@ const instrumentSans = Instrument_Sans({ subsets: ['latin', 'latin-ext'], variab
 export const metadata: Metadata = {
   title: { default: brand.appName, template: `%s · ${brand.appName}` },
   robots: { index: false, follow: false },
+  // Als App installierbar (manifest.ts); auf dem iPhone über „Zum Home-Bildschirm“
+  appleWebApp: { capable: true, title: 'Cockpit', statusBarStyle: 'default' },
 }
 export const viewport: Viewport = { themeColor: brand.colors.palette.forest }
 
