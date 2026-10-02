@@ -77,6 +77,14 @@ export function Geraete({ passkeys, laden, zeit }: Props) {
         </div>
       )}
 
+      <details className="text-sm text-text-muted">
+        <summary className="cursor-pointer">Cockpit am Handy öffnen bzw. als App installieren</summary>
+        <div className="mt-2 space-y-2">
+          <p>Der QR-Code oben dient nur dem Passkey – er öffnet keine Seite. Zum Öffnen am iPhone in Safari genau diese Adresse eintippen (ohne „www“): <b className="whitespace-nowrap">lsb.icp-consultants.at</b> – oder den Link an dich selbst schicken und am Handy antippen:</p>
+          <a className="btn btn-ghost no-underline" href="mailto:?subject=LSB%20Cockpit%20am%20Handy&body=Am%20iPhone%20in%20Safari%20%C3%B6ffnen%3A%20https%3A%2F%2Flsb.icp-consultants.at%2Finstallieren">Link per E-Mail an mich schicken</a>
+        </div>
+      </details>
+
       {f && (
         <form onSubmit={einrichten} className="space-y-4 border-t border-border pt-4">
           <p className="text-sm">{f.ziel === 'handy'

@@ -6,6 +6,7 @@ import { AuskunftAnsicht } from '@/components/AuskunftAnsicht'
 import { StammdatenPanel } from '@/components/StammdatenPanel'
 import { TeilnahmeAnsicht } from '@/components/TeilnahmeAnsicht'
 import { datum, heute } from '@/lib/format'
+import { akteZuordnen, leereAkteEntfernen } from '@/lib/akten'
 import { protokolliere } from '@/lib/konto'
 import { aktualisiereRegister, ladeAkten, ladeRegister, ladeSitzungen, neueAkte, neueSitzung, type Akte, type RegisterInhalt } from '@/lib/protokolle/daten'
 import { pruefeDatum, PROTOKOLL_AB_JAHR } from '@/lib/protokolle/modell'
@@ -26,6 +27,8 @@ export default function Register() {
   const [stamm, setStamm] = useState<Zeile | null>(null)
   const [auskunft, setAuskunft] = useState<string | null>(null)
   const [teilnahme, setTeilnahme] = useState<Zeile | null>(null)
+  const [zuordnen, setZuordnen] = useState<{ quelle: Zeile; ziel: string } | null>(null)
+  const [meldung, setMeldung] = useState('')
   const [neu, setNeu] = useState({ name: '', notiz: '', datum: heute(), ausbildung: false })
   useEffect(() => { laden().catch((e) => setFehler((e as Error).message)) }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -44,6 +47,31 @@ export default function Register() {
       await aktualisiereRegister(tresor.schluessel('zone_c'), id, inhalt)
       await protokolliere('register_geaendert', z.chiffre)
       setBearbeiten(null); await laden()
+    } catch (err) { setFehler((err as Error).message) }
+  }
+
+  /** Leere Akte (ohne Gespräche) löschen */
+  async function loeschen(z: Zeile) {
+    if (!confirm(`${z.chiffre}${z.name ? ` (${z.name})` : ''} endgültig löschen? Name, Hinweis und Stammdaten dieser Chiffre werden entfernt.`)) return
+    setFehler(''); setMeldung('')
+    try {
+      await leereAkteEntfernen(tresor.schluessel('zone_a'), tresor.schluessel('zone_c'), z.akte_id)
+      await protokolliere('akte_entfernt', z.chiffre)
+      setMeldung(`${z.chiffre} gelöscht.`); await laden()
+    } catch (err) { setFehler((err as Error).message) }
+  }
+
+  /** Klient:in ohne Gespräche mit einer Chiffre verknüpfen, unter der schon Protokolle stehen */
+  async function verknuepfen() {
+    if (!zuordnen?.ziel) { setFehler('Bitte die Chiffre mit den Protokollen wählen.'); return }
+    const ziel = zeilen.find((x) => x.akte_id === zuordnen.ziel)!
+    const q = zuordnen.quelle
+    if (ziel.name && q.name && ziel.name !== q.name && !confirm(`Unter ${ziel.chiffre} steht schon der Name „${ziel.name}“. Durch „${q.name}“ ersetzen?`)) return
+    setFehler(''); setMeldung('')
+    try {
+      await akteZuordnen(tresor.schluessel('zone_c'), q.akte_id, ziel.akte_id)
+      await protokolliere('akte_zugeordnet', `${q.chiffre} → ${ziel.chiffre}`)
+      setZuordnen(null); setMeldung(`${q.name || q.chiffre} ist jetzt mit ${ziel.chiffre} verknüpft; ${q.chiffre} wurde entfernt.`); await laden()
     } catch (err) { setFehler((err as Error).message) }
   }
 
@@ -92,36 +120,60 @@ export default function Register() {
 
       <label className="max-w-sm">Suche (Name, Chiffre, Hinweis)<input value={suche} onChange={(e) => setSuche(e.target.value)} autoComplete="off" /></label>
 
-      <div className="karte overflow-x-auto p-0">
-        <table className="w-full text-sm">
-          <thead><tr className="text-left text-xs uppercase tracking-widest text-text-subtle">
-            {['Chiffre', 'Name', 'Hinweis / Adresse', 'Einwilligung', 'Letzte Sitzung', ''].map((h) => <th key={h} className="px-4 py-3 font-medium">{h}</th>)}
-          </tr></thead>
-          <tbody>
-            {gefiltert.map((z) => bearbeiten?.id === z.id ? (
-              <tr key={z.id} className="border-t border-border bg-background">
-                <td className="px-4 py-2 tabular-nums">{z.chiffre}</td>
-                <td className="px-2"><input aria-label="Name" value={bearbeiten.name ?? ''} onChange={(e) => setBearbeiten({ ...bearbeiten, name: e.target.value })} /></td>
-                <td className="px-2"><input aria-label="Hinweis" value={bearbeiten.notiz ?? ''} onChange={(e) => setBearbeiten({ ...bearbeiten, notiz: e.target.value })} />
-                  <textarea aria-label="Adresse für Honorarnoten" placeholder="Adresse für Honorarnoten (optional)" rows={2} value={bearbeiten.adresse ?? ''} onChange={(e) => setBearbeiten({ ...bearbeiten, adresse: e.target.value })} className="mt-1 block w-full rounded-md border border-border-input bg-surface p-2 text-sm" /></td>
-                <td className="px-4" />
-                <td className="px-4 tabular-nums">{z.letzteSitzung ? datum(z.letzteSitzung) : '–'}</td>
-                <td className="whitespace-nowrap px-4"><button className="btn btn-cta px-3 py-1 text-xs" onClick={() => void speichern(bearbeiten)}>Speichern</button> <button className="btn btn-ghost px-3 py-1 text-xs" onClick={() => setBearbeiten(null)}>Abbrechen</button></td>
-              </tr>
-            ) : (
-              <tr key={z.id} className="border-t border-border">
-                <td className="whitespace-nowrap px-4 py-3 tabular-nums">{z.chiffre}</td>
-                <td className="px-4">{z.name || <span className="text-text-subtle">– noch kein Name –</span>}</td>
-                <td className="px-4 text-text-muted">{[z.notiz, z.kuerzel_alt && `altes Kürzel ${z.kuerzel_alt}`].filter(Boolean).join(' · ')}</td>
-                <td className="px-4 tabular-nums">{z.akte?.einwilligung_am ? datum(z.akte.einwilligung_am) : <span className="font-medium text-accent-strong">fehlt</span>}</td>
-                <td className="px-4 tabular-nums">{z.letzteSitzung ? datum(z.letzteSitzung) : '–'}</td>
-                <td className="whitespace-nowrap px-4"><button className="btn btn-ghost px-3 py-1 text-xs" onClick={() => setBearbeiten(z)}>Bearbeiten</button> <button className="btn btn-ghost px-3 py-1 text-xs" onClick={() => { setStamm(z); scrollTo({ top: 0, behavior: 'smooth' }) }}>Stammdaten</button> <button className="btn btn-ghost px-3 py-1 text-xs" onClick={() => setAuskunft(z.akte_id)}>Auskunft</button> <button className="btn btn-ghost px-3 py-1 text-xs" onClick={() => setTeilnahme(z)}>Bestätigung</button> <Link className="text-xs" href={`/protokolle?chiffre=${encodeURIComponent(z.chiffre)}`}>Protokolle</Link></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        {gefiltert.length === 0 && <p className="p-6 text-text-muted">{zeilen.length ? 'Keine Treffer.' : 'Noch keine Einträge.'}</p>}
-      </div>
+      {meldung && <p className="hinweis" role="status">{meldung}</p>}
+      <ul className="karte divide-y divide-border p-0">
+        {gefiltert.map((z) => {
+          const ohneGespraech = !z.letzteSitzung
+          if (bearbeiten?.id === z.id) return (
+            <li key={z.id} className="space-y-3 bg-background px-4 py-4">
+              <p className="font-semibold tabular-nums">{z.chiffre}</p>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label>Name<input value={bearbeiten.name ?? ''} onChange={(e) => setBearbeiten({ ...bearbeiten, name: e.target.value })} autoComplete="off" /></label>
+                <label>Hinweis<input value={bearbeiten.notiz ?? ''} onChange={(e) => setBearbeiten({ ...bearbeiten, notiz: e.target.value })} autoComplete="off" /></label>
+                <label className="sm:col-span-2">Adresse für Honorarnoten (optional)<textarea rows={2} value={bearbeiten.adresse ?? ''} onChange={(e) => setBearbeiten({ ...bearbeiten, adresse: e.target.value })} className="mt-1 block w-full rounded-md border border-border-input bg-surface p-2 text-base" /></label>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <button className="btn btn-cta" onClick={() => void speichern(bearbeiten)}>Speichern</button>
+                <button className="btn btn-ghost" onClick={() => setBearbeiten(null)}>Abbrechen</button>
+              </div>
+            </li>
+          )
+          return (
+            <li key={z.id} className="px-4 py-4">
+              <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+                <p><span className="font-semibold tabular-nums">{z.chiffre}</span> · {z.name || <span className="text-text-subtle">noch kein Name</span>}
+                  {(z.notiz || z.kuerzel_alt) && <span className="text-text-muted"> · {[z.notiz, z.kuerzel_alt && `altes Kürzel ${z.kuerzel_alt}`].filter(Boolean).join(' · ')}</span>}</p>
+                <p className="text-sm text-text-muted">Einwilligung {z.akte?.einwilligung_am ? datum(z.akte.einwilligung_am) : <span className="font-medium text-accent-strong">fehlt</span>} · {ohneGespraech ? 'noch kein Gespräch' : `letztes Gespräch ${datum(z.letzteSitzung!)}`}</p>
+              </div>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <button className="btn btn-ghost px-3 py-1 text-sm" onClick={() => { setZuordnen(null); setBearbeiten(z) }}>{z.name ? 'Bearbeiten' : 'Name eintragen'}</button>
+                <button className="btn btn-ghost px-3 py-1 text-sm" onClick={() => { setStamm(z); scrollTo({ top: 0, behavior: 'smooth' }) }}>Stammdaten</button>
+                {!ohneGespraech && <Link className="btn btn-ghost px-3 py-1 text-sm no-underline" href={`/protokolle?chiffre=${encodeURIComponent(z.chiffre)}`}>Protokolle</Link>}
+                <button className="btn btn-ghost px-3 py-1 text-sm" onClick={() => setAuskunft(z.akte_id)}>Auskunft</button>
+                {!ohneGespraech && <button className="btn btn-ghost px-3 py-1 text-sm" onClick={() => setTeilnahme(z)}>Bestätigung</button>}
+                {ohneGespraech && <button className="btn btn-ghost px-3 py-1 text-sm" onClick={() => { setBearbeiten(null); setZuordnen({ quelle: z, ziel: '' }) }}>Mit Protokollen verknüpfen …</button>}
+                {ohneGespraech && z.akte?.status === 'offen' && <button className="btn btn-ghost px-3 py-1 text-sm text-accent-strong" onClick={() => void loeschen(z)}>Löschen</button>}
+              </div>
+              {zuordnen?.quelle.id === z.id && (
+                <div className="mt-3 space-y-3 rounded-md bg-background p-3">
+                  <p className="text-sm">Unter welcher Chiffre stehen die Protokolle von {z.name || z.chiffre}? Name, Hinweis, Adresse und Stammdaten gehen auf diese Chiffre über, {z.chiffre} wird danach gelöscht.</p>
+                  <label className="max-w-sm">Chiffre mit Protokollen
+                    <select value={zuordnen.ziel} onChange={(e) => setZuordnen({ ...zuordnen, ziel: e.target.value })} className="mt-1 block w-full rounded-md border border-border-input bg-surface px-3 py-2.5 text-base">
+                      <option value="">bitte wählen …</option>
+                      {zeilen.filter((x) => x.letzteSitzung && x.akte?.status === 'offen').sort((x, y) => Number(!!x.name) - Number(!!y.name)).map((x) => <option key={x.id} value={x.akte_id}>{x.chiffre} · {x.name || 'ohne Name'} · letztes Gespräch {datum(x.letzteSitzung!)}</option>)}
+                    </select>
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    <button className="btn btn-cta" onClick={() => void verknuepfen()}>Verknüpfen</button>
+                    <button className="btn btn-ghost" onClick={() => setZuordnen(null)}>Abbrechen</button>
+                  </div>
+                </div>
+              )}
+            </li>
+          )
+        })}
+        {gefiltert.length === 0 && <li className="p-6 text-text-muted">{zeilen.length ? 'Keine Treffer.' : 'Noch keine Einträge.'}</li>}
+      </ul>
     </div>
   )
 }

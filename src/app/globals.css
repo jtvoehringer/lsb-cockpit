@@ -12,6 +12,9 @@
     border: 1px solid var(--color-border-input); border-radius: var(--radius-md);
   }
   input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--color-primary); }
+  /* iPhone/Safari: Datums- und Zeitfelder haben sonst eine feste Mindestbreite und schieben die Seite nach rechts hinaus */
+  input[type=date], input[type=time] { min-width: 0; max-width: 100%; -webkit-appearance: none; appearance: none; min-height: 44px; }
+  label { min-width: 0; }
 }
 
 @layer components {

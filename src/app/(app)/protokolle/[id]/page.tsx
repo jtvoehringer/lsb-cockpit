@@ -178,12 +178,16 @@ export default function ProtokollBearbeiten() {
         </div>
 
         <div className="flex flex-wrap justify-end gap-2 pt-4">
-          {entwurf && <button className="btn btn-ghost text-accent-strong" onClick={loeschen}>Entwurf löschen</button>}
+          {entwurf && <button className="btn btn-ghost text-accent-strong" onClick={loeschen}>Löschen</button>}
+          {entwurf && <button className="btn btn-primary" onClick={() => { geaendert.current = true; void speichern().then(() => setSpeicherStand('gespeichert (verschlüsselt)')) }} disabled={aufnahme}>Speichern</button>}
           {!entwurf && !korrektur && <button className="btn btn-ghost" onClick={() => setKorrektur(true)}>Korrigieren</button>}
           {korrektur && <button className="btn btn-ghost" onClick={() => { if (confirm('Korrektur verwerfen?')) void laden() }}>Verwerfen</button>}
           {bearbeitbar && <button className="btn btn-ghost" onClick={() => void nurPruefen()} disabled={aufnahme}>Auf Namen prüfen</button>}
           {bearbeitbar && <button className="btn btn-cta" onClick={() => void abschliessen()} disabled={aufnahme}>{korrektur ? 'Korrektur speichern' : 'Protokoll abschließen'}</button>}
         </div>
+
+        {entwurf && <p className="text-right text-xs text-text-subtle">Entwürfe speichern sich auch automatisch. „Löschen“ entfernt den Entwurf endgültig.</p>}
+        {!entwurf && !korrektur && <p className="text-right text-xs text-text-subtle">Abgeschlossene Protokolle lassen sich nicht löschen (Aufbewahrungspflicht) – nur korrigieren. Die ganze Akte wird nach Ablauf der Frist unter „Fristen“ gelöscht.</p>}
 
         {pruefung && (
           <div className="karte space-y-3 border-2 border-accent-strong" role="alertdialog" aria-label="Pseudonymisierungs-Check">
