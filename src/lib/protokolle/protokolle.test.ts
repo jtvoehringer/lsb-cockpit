@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { CHIFFRE_MUSTER, chiffreJahr, einheiten, minuten, naechsteChiffre, pruefeDatum } from './modell'
+import { CHIFFRE_MUSTER, chiffreJahr, einheiten, minuten, nameTeilen, naechsteChiffre, pruefeDatum, vollerName } from './modell'
 
 describe('Zeiten und Einheiten', () => {
   it('rechnet Dauer und Einheiten zu 50 Minuten', () => {
@@ -43,5 +43,19 @@ describe('Nachträge aus der Ausbildungszeit (ab 2024)', () => {
     expect(pruefeDatum('2023-12-31', heute)).toMatch(/ab 2024/)
     expect(pruefeDatum('2027-01-01', heute)).toMatch(/künftigen/)
     expect(pruefeDatum('', heute)).toMatch(/gültiges/)
+  })
+})
+
+describe('Vorname / Nachname', () => {
+  it('teilt „Vorname Nachname“ – letztes Wort ist der Nachname', () => {
+    expect(nameTeilen('Anna Huber')).toEqual({ vorname: 'Anna', nachname: 'Huber' })
+    expect(nameTeilen('  Anna  Maria   Huber-Meier ')).toEqual({ vorname: 'Anna Maria', nachname: 'Huber-Meier' })
+    expect(nameTeilen('Huber')).toEqual({ vorname: '', nachname: 'Huber' })
+    expect(nameTeilen('')).toEqual({ vorname: '', nachname: '' })
+  })
+  it('setzt den vollen Namen zusammen', () => {
+    expect(vollerName(' Anna ', 'Huber')).toBe('Anna Huber')
+    expect(vollerName('', 'Huber')).toBe('Huber')
+    expect(vollerName(undefined, undefined)).toBe('')
   })
 })

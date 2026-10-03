@@ -91,4 +91,14 @@ export function pruefeDatum(datum: string, heute = new Date()): string | null {
 /** Vermerk für Protokolle mit Häkchen „in Ausbildung“ (Ausdruck und Nachweisliste) */
 export const AUSBILDUNG_VERMERK = 'Vermerk: Beratung im Rahmen der Ausbildung zur Lebens- und Sozialberaterin (vor Erteilung der Gewerbeberechtigung)'
 
+/** Vorname und Nachname zum vollen Namen zusammensetzen */
+export const vollerName = (vorname?: string, nachname?: string) => [vorname?.trim(), nachname?.trim()].filter(Boolean).join(' ')
+
+/** Bisherigen Namen „Vorname Nachname“ teilen: letztes Wort = Nachname, davor Vorname(n); ein einzelnes Wort gilt als Nachname. */
+export function nameTeilen(name: string): { vorname: string; nachname: string } {
+  const teile = name.trim().split(/\s+/).filter(Boolean)
+  if (teile.length < 2) return { vorname: '', nachname: teile[0] ?? '' }
+  return { vorname: teile.slice(0, -1).join(' '), nachname: teile[teile.length - 1] }
+}
+
 export const leererInhalt = (): Inhalt => ({ felder: {}, supervision: false })

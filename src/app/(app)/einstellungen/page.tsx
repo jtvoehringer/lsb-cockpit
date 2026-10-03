@@ -4,6 +4,7 @@ import { AUSDRUCK_LEER, ibanFormatiert, ibanGueltig, ladeAusdruck, ladeEinstellu
 import { FRISTEN_STANDARD, pruefeFristEinstellungen, type FristEinstellungen } from '@/lib/fristen'
 import { betragAusText, euro } from '@/lib/finanzen/modell'
 import { protokolliere } from '@/lib/konto'
+import { zeigeMeldung } from '@/lib/meldung'
 
 export default function Einstellungen() {
   const [e, setE] = useState<PraxisEinstellungen>(LEER)
@@ -21,7 +22,7 @@ export default function Einstellungen() {
     try {
       await speichereEinstellungen({ ...e, honorarsatz, iban: e.iban ? ibanFormatiert(e.iban) : '' })
       await protokolliere('einstellungen_geaendert')
-      setStand('Gespeichert.')
+      setStand('Gespeichert.'); zeigeMeldung('Einstellungen gespeichert.')
     } catch (x) { setFehler((x as Error).message) }
   }
 
@@ -74,7 +75,7 @@ function FristenEinstellungen() {
     setStand(''); const p = pruefeFristEinstellungen(f)
     if (p.length) { setFehler(p.join(' ')); return }
     setFehler('')
-    try { await speichereFristen(f); await protokolliere('fristen_geaendert', `${f.standard_jahre}/${f.zustimmung_jahre} J.`); setStand('Gespeichert.') } catch (x) { setFehler((x as Error).message) }
+    try { await speichereFristen(f); await protokolliere('fristen_geaendert', `${f.standard_jahre}/${f.zustimmung_jahre} J.`); setStand('Gespeichert.'); zeigeMeldung('Einstellungen gespeichert.') } catch (x) { setFehler((x as Error).message) }
   }
   const zahlFeld = (k: 'standard_jahre' | 'zustimmung_jahre' | 'volljaehrig_mit', titel: string) => (
     <label>{titel}<input type="number" min={1} max={30} value={f[k]} onChange={(x) => setF({ ...f, [k]: Number(x.target.value) || 0 })} /></label>
@@ -103,7 +104,7 @@ function AusdruckEinstellungen() {
 
   async function speichern() {
     setStand(''); setFehler('')
-    try { await speichereAusdruck({ beraterin: a.beraterin.trim(), institut: a.institut.trim() }); await protokolliere('einstellungen_geaendert', 'Protokoll-Ausdruck'); setStand('Gespeichert.') } catch (x) { setFehler((x as Error).message) }
+    try { await speichereAusdruck({ beraterin: a.beraterin.trim(), institut: a.institut.trim() }); await protokolliere('einstellungen_geaendert', 'Protokoll-Ausdruck'); setStand('Gespeichert.'); zeigeMeldung('Einstellungen gespeichert.') } catch (x) { setFehler((x as Error).message) }
   }
 
   return (

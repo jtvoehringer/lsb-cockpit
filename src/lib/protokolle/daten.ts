@@ -3,7 +3,8 @@
 // Register (Chiffre ↔ Person) mit K_C. Der Server sieht nie Klartext der Inhalte.
 import { aad, entschluessele, verschluessele } from '../crypto/kern'
 import { supabaseBrowser } from '../supabase/client'
-import { chiffreJahr, einheiten, minuten, naechsteChiffre, type Art, type Inhalt } from './modell'
+import { chiffreJahr, einheiten, minuten, naechsteChiffre, nameTeilen, type Art, type Inhalt } from './modell'
+export { nameTeilen, vollerName } from './modell'
 
 const sb = () => supabaseBrowser()
 
@@ -15,7 +16,8 @@ export type Sitzung = {
   in_ausbildung: boolean; herkunft: string | null; erstellt_am: string; geaendert_am: string
 }
 export type Version = { id: string; version: number; inhalt_enc: string; erstellt_am: string }
-export type RegisterInhalt = { akte_id: string; chiffre: string; name?: string; adresse?: string; kuerzel_alt?: string; notiz?: string; stammdaten_id?: string }
+/** name = „Vorname Nachname“ (für Ausdrucke, Honorarnote, Namensprüfung); seit 03.10.2026 zusätzlich getrennt erfasst */
+export type RegisterInhalt = { akte_id: string; chiffre: string; name?: string; vorname?: string; nachname?: string; adresse?: string; kuerzel_alt?: string; notiz?: string; stammdaten_id?: string }
 
 const SITZUNG_FELDER = 'id, akte_id, nr, art, datum, beginn, ende, arbeitseinheiten, vorbereitung_min, nachbereitung_min, prozess_abgeschlossen, protokoll_status, abgeschlossen_am, entwurf_enc, in_ausbildung, herkunft, erstellt_am, geaendert_am'
 const kurzZeit = (t: string | null) => (t ? t.slice(0, 5) : null)
@@ -88,6 +90,17 @@ export async function ladeRegister(kC: CryptoKey): Promise<(RegisterInhalt & { i
   const out = []
   for (const r of data ?? []) out.push({ id: r.id, ...(JSON.parse(await entschluessele(kC, r.inhalt_enc, aad('register_eintrag', r.id, 'inhalt'))) as RegisterInhalt) })
   return out
+}
+
+/** Einmalige Umstellung: Einträge mit „name“, aber ohne Vorname/Nachname, teilen und neu verschlüsselt speichern. Liefert die Anzahl. */
+export async function registerNamenMigrieren(kC: CryptoKey): Promise<number> {
+  let n = 0
+  for (const { id, ...inhalt } of await ladeRegister(kC)) {
+    if (!inhalt.name || inhalt.vorname !== undefined || inhalt.nachname !== undefined) continue
+    await aktualisiereRegister(kC, id, { ...inhalt, ...nameTeilen(inhalt.name) })
+    n++
+  }
+  return n
 }
 
 export async function aktualisiereRegister(kC: CryptoKey, id: string, inhalt: RegisterInhalt) {

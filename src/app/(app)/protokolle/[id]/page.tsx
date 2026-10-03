@@ -7,6 +7,7 @@ import brand from '@/config/brand.config'
 import { datum, stunden, zahl, zeitpunkt } from '@/lib/format'
 import { AUSDRUCK_LEER, ladeAusdruck, type ProtokollAusdruck } from '@/lib/einstellungen'
 import { protokolliere } from '@/lib/konto'
+import { zeigeMeldung } from '@/lib/meldung'
 import {
   chiffreAnJahrAnpassen, entschluesseleVersion, entwurfLoeschen, ladeAkten, ladeInhalt, ladeRegister, ladeSitzung, speichereEntwurf, versionAnhaengen,
   type Sitzung, type Version,
@@ -23,7 +24,9 @@ export default function ProtokollBearbeiten() {
   const router = useRouter()
   const tresor = useTresor()
   const [s, setS] = useState<Sitzung | null>(null)
-  const [chiffre, setChiffre] = useState('')
+  const [chiffre, setChiffreState] = useState('')
+  const chiffreRef = useRef('') // aktuelle Chiffre auch nach automatischer Anpassung im selben Ablauf
+  const setChiffre = useCallback((c: string) => { chiffreRef.current = c; setChiffreState(c) }, [])
   const [kopf, setKopf] = useState<Kopf | null>(null)
   const [inhalt, setInhalt] = useState<Inhalt>(leererInhalt())
   const [versionen, setVersionen] = useState<Version[]>([])
@@ -108,7 +111,8 @@ export default function ProtokollBearbeiten() {
       await versionAnhaengen(tresor.schluessel('zone_b'), s, kopf, inhalt)
       await protokolliere(korrektur ? 'protokoll_korrigiert' : 'protokoll_abgeschlossen', `Nr. ${s.nr}`)
       setPruefung(null)
-      await laden()
+      zeigeMeldung(`Protokoll Nr. ${s.nr} (${chiffreRef.current}) ${korrektur ? 'korrigiert – neue Fassung gespeichert' : 'abgeschlossen und gespeichert'}.`)
+      router.push('/protokolle')
     } catch (e) { setFehler((e as Error).message) }
   }
 
@@ -121,9 +125,23 @@ export default function ProtokollBearbeiten() {
     } catch (e) { setFehler((e as Error).message) }
   }
 
+  /** Entwurf sofort speichern und zur Liste zurück */
+  async function speichernUndSchliessen() {
+    if (!s || !kopf) return
+    setFehler('')
+    try {
+      if (timer.current) clearTimeout(timer.current)
+      await chiffreAbgleichen(kopf.datum)
+      await speichereEntwurf(tresor.schluessel('zone_b'), s, kopf, inhalt)
+      geaendert.current = false
+      zeigeMeldung(`Entwurf Nr. ${s.nr} (${chiffreRef.current}) gespeichert.`)
+      router.push('/protokolle')
+    } catch (e) { setFehler((e as Error).message) }
+  }
+
   async function loeschen() {
     if (!s || !confirm('Diesen Entwurf endgültig löschen?')) return
-    try { await entwurfLoeschen(s); router.replace('/protokolle') } catch (e) { setFehler((e as Error).message) }
+    try { await entwurfLoeschen(s); zeigeMeldung(`Entwurf Nr. ${s.nr} gelöscht.`); router.replace('/protokolle') } catch (e) { setFehler((e as Error).message) }
   }
 
   async function zeigeVersion(v: Version) {
@@ -182,7 +200,7 @@ export default function ProtokollBearbeiten() {
 
         <div className="flex flex-wrap justify-end gap-2 pt-4">
           {entwurf && <button className="btn btn-ghost text-accent-strong" onClick={loeschen}>Löschen</button>}
-          {entwurf && <button className="btn btn-primary" onClick={() => { geaendert.current = true; void speichern().then(() => setSpeicherStand('gespeichert (verschlüsselt)')) }} disabled={aufnahme}>Speichern</button>}
+          {entwurf && <button className="btn btn-primary" onClick={() => void speichernUndSchliessen()} disabled={aufnahme}>Speichern</button>}
           {!entwurf && !korrektur && <button className="btn btn-ghost" onClick={() => setKorrektur(true)}>Korrigieren</button>}
           {korrektur && <button className="btn btn-ghost" onClick={() => { if (confirm('Korrektur verwerfen?')) void laden() }}>Verwerfen</button>}
           {bearbeitbar && <button className="btn btn-ghost" onClick={() => void nurPruefen()} disabled={aufnahme}>Auf Namen prüfen</button>}

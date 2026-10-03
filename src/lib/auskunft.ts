@@ -12,7 +12,7 @@ export type AuskunftSitzung = {
 export type Auskunft = {
   erstellt_am: string
   chiffre: string
-  person: Pick<RegisterInhalt, 'name' | 'adresse' | 'notiz'>
+  person: Pick<RegisterInhalt, 'name' | 'vorname' | 'nachname' | 'adresse' | 'notiz'>
   stammdaten: Omit<StammdatenInhalt, 'einwilligungen'> | null
   einwilligungen: { art: string; erteilt_am: string; widerrufen_am?: string; notiz?: string }[]
   dokumente: { art: string; name: string; hochgeladen_am: string }[]
@@ -43,7 +43,7 @@ export async function sammleAuskunft(k: { a: CryptoKey; b: CryptoKey; c: CryptoK
   return {
     erstellt_am: new Date().toISOString(),
     chiffre: akte.chiffre,
-    person: { name: reg?.name, adresse: reg?.adresse, notiz: reg?.notiz },
+    person: { name: reg?.name, vorname: reg?.vorname, nachname: reg?.nachname, adresse: reg?.adresse, notiz: reg?.notiz },
     stammdaten: st ? stammRest : null,
     einwilligungen: einwilligungen.map((e) => ({ art: EINWILLIGUNGEN[e.art]?.titel ?? e.art, erteilt_am: e.erteilt_am, widerrufen_am: e.widerrufen_am, notiz: e.notiz })),
     dokumente: doks.map((d) => ({ art: d.art === 'sonstiges' ? 'Sonstiges' : EINWILLIGUNGEN[d.art]?.titel ?? d.art, name: d.name, hochgeladen_am: d.erstellt_am })),

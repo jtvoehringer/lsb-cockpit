@@ -72,7 +72,7 @@ export async function akteZuordnen(kC: CryptoKey, quelleId: string, zielId: stri
   const { id: zId, ...ziel } = z
   await aktualisiereRegister(kC, zId, {
     ...ziel,
-    name: q.name || ziel.name,
+    ...(q.name || q.vorname || q.nachname ? { name: q.name, vorname: q.vorname, nachname: q.nachname } : {}),
     notiz: [ziel.notiz, q.notiz].filter(Boolean).join(' · ') || undefined,
     adresse: q.adresse || ziel.adresse,
     stammdaten_id: ziel.stammdaten_id || q.stammdaten_id,

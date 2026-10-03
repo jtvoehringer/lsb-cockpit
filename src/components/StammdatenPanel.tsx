@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { datum } from '@/lib/format'
 import { protokolliere } from '@/lib/konto'
+import { zeigeMeldung } from '@/lib/meldung'
 import { aktualisiereRegister, type Akte, type RegisterInhalt } from '@/lib/protokolle/daten'
 import {
   dokumentHochladen, dokumentLoeschen, dokumentOeffnen, EINWILLIGUNGEN, gueltigeEinwilligung, heuteIso, ladeDokumente, ladeStammdaten,
@@ -36,8 +37,8 @@ export function StammdatenPanel({ zeile, schliessen, gespeichert }: { zeile: Zei
   async function sichern(inhalt: StammdatenInhalt): Promise<string> {
     const neuId = await speichereStammdaten(kA(), id, inhalt)
     if (!id) {
-      const { id: regId, akte_id, chiffre, name, adresse, kuerzel_alt, notiz } = zeile
-      await aktualisiereRegister(tresor.schluessel('zone_c'), regId, { akte_id, chiffre, name, adresse, kuerzel_alt, notiz, stammdaten_id: neuId })
+      const { id: regId, akte_id, chiffre, name, vorname, nachname, adresse, kuerzel_alt, notiz } = zeile
+      await aktualisiereRegister(tresor.schluessel('zone_c'), regId, { akte_id, chiffre, name, vorname, nachname, adresse, kuerzel_alt, notiz, stammdaten_id: neuId })
       setId(neuId)
     }
     await setzeEinwilligungAkte(zeile.akte_id, gueltigeEinwilligung(inhalt, 'datenschutz'))
@@ -50,7 +51,7 @@ export function StammdatenPanel({ zeile, schliessen, gespeichert }: { zeile: Zei
     const f = pruefeStammdaten(s)
     if (f.length) { setFehler(f.join(' ')); return }
     setFehler(''); setArbeitet(true)
-    try { await sichern(s); setHinweis('Gespeichert.'); await gespeichert() }
+    try { await sichern(s); await gespeichert(); zeigeMeldung(`Stammdaten ${zeile.chiffre} gespeichert.`); schliessen() }
     catch (e) { setFehler((e as Error).message) } finally { setArbeitet(false) }
   }
 

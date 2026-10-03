@@ -2,6 +2,7 @@
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
+import { Meldungen } from '@/components/Meldungen'
 import brand from '@/config/brand.config'
 import { abmelden, protokolliere } from '@/lib/konto'
 import { useTresor } from '@/lib/tresor'
@@ -46,6 +47,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         </div>
       </header>
       <main className="mx-auto max-w-5xl px-4 py-8">{children}</main>
+      <Meldungen />
     </div>
   )
 }

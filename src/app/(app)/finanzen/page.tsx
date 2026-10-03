@@ -9,6 +9,7 @@ import {
 } from '@/lib/finanzen/daten'
 import { betragAusText, euro, FIN_ART, jahresuebersicht, MONATE, ZAHLUNGSART, type FinArt, type Summenzeile, type Zahlungsart } from '@/lib/finanzen/modell'
 import { protokolliere } from '@/lib/konto'
+import { zeigeMeldung } from '@/lib/meldung'
 import { useTresor } from '@/lib/tresor'
 
 type Ansicht = 'uebersicht' | 'buchungen' | 'kategorien'
@@ -51,13 +52,13 @@ export default function Finanzen() {
       const id = await buchungSpeichern(kA(), { art: form.art, datum: form.datum, betrag, kategorie_id: form.kategorie_id, zahlungsart: form.zahlungsart, beschreibung: form.beschreibung }, form.id)
       for (const d of form.dateien) await belegHochladen(kA(), id, d)
       await protokolliere(form.id ? 'buchung_geaendert' : 'buchung_angelegt')
-      setForm(null); await laden()
+      setForm(null); zeigeMeldung(`${FIN_ART[form.art]} vom ${datum(form.datum)} gespeichert.`); await laden()
     } catch (err) { setFehler((err as Error).message) } finally { setArbeitet(false) }
   }
 
   async function loeschen(b: Buchung) {
     if (!confirm(`${FIN_ART[b.art]} vom ${datum(b.datum)} über ${euro(b.betrag)} löschen?${b.belege.length ? ' Die Belege werden mitgelöscht.' : ''}`)) return
-    try { await buchungLoeschen(b); await protokolliere('buchung_geloescht'); await laden() } catch (err) { setFehler((err as Error).message) }
+    try { await buchungLoeschen(b); await protokolliere('buchung_geloescht'); zeigeMeldung('Buchung gelöscht.'); await laden() } catch (err) { setFehler((err as Error).message) }
   }
 
   async function oeffneBeleg(x: BelegInfo) {

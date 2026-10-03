@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useEffect, useMemo, useState } from 'react'
 import { datum, heute, stunden, zahl } from '@/lib/format'
-import { chiffreAnJahrAnpassen, ladeAkten, ladeSitzungen, neueAkte, neueSitzung, type Akte, type Sitzung } from '@/lib/protokolle/daten'
+import { chiffreAnJahrAnpassen, ladeAkten, ladeSitzungen, neueAkte, neueSitzung, vollerName, type Akte, type Sitzung } from '@/lib/protokolle/daten'
 import { ART, minuten, pruefeDatum, PROTOKOLL_AB_JAHR } from '@/lib/protokolle/modell'
 import { protokolliere } from '@/lib/konto'
 import { useTresor } from '@/lib/tresor'
@@ -16,6 +16,8 @@ export default function Protokolle() {
   const [filter, setFilter] = useState({ chiffre: '', von: '', bis: '' })
   const [folgeAkte, setFolgeAkte] = useState('')
   const [neu, setNeu] = useState({ datum: heute(), ausbildung: false })
+  // Erstgespräch: zuerst Klient:in anlegen (Name nur verschlüsselt im Register)
+  const [klient, setKlient] = useState<{ vorname: string; nachname: string; notiz: string } | null>(null)
   const [arbeitet, setArbeitet] = useState(false)
   const [fehler, setFehler] = useState('')
 
@@ -38,11 +40,20 @@ export default function Protokolle() {
     if (letzte) setNeu((n) => ({ ...n, ausbildung: letzte.in_ausbildung }))
   }
 
-  async function erstgespraech() {
+  /** Schritt 1: Dialog „Neue Klientin / neuer Klient“ öffnen */
+  function erstgespraechStarten() {
     const f = pruefeDatum(neu.datum); if (f) { setFehler(f); return }
+    setFehler(''); setKlient({ vorname: '', nachname: '', notiz: '' })
+  }
+
+  /** Schritt 2: Akte mit Registereintrag anlegen und Erstgespräch öffnen (ohne Namen möglich – später im Register nachtragen) */
+  async function erstgespraech(mitName: boolean) {
+    const f = pruefeDatum(neu.datum); if (f) { setFehler(f); return }
+    if (mitName && klient && !klient.vorname.trim() && !klient.nachname.trim()) { setFehler('Bitte Vor- und Nachnamen eingeben – oder „Ohne Namen weiter“.'); return }
     setArbeitet(true); setFehler('')
     try {
-      const akte = await neueAkte(tresor.schluessel('zone_c'), {}, Number(neu.datum.slice(0, 4)))
+      const zusatz = mitName && klient ? { vorname: klient.vorname.trim(), nachname: klient.nachname.trim(), name: vollerName(klient.vorname, klient.nachname), notiz: klient.notiz.trim() || undefined } : {}
+      const akte = await neueAkte(tresor.schluessel('zone_c'), zusatz, Number(neu.datum.slice(0, 4)))
       const s = await neueSitzung(akte.id, 'erst', { datum: neu.datum, in_ausbildung: neu.ausbildung })
       await protokolliere('akte_angelegt', akte.chiffre)
       router.push(`/protokolle/${s.id}`)
@@ -78,7 +89,7 @@ export default function Protokolle() {
         </div>
         <p className="text-xs text-text-subtle">Die Chiffre bekommt immer das Jahr des Erstgesprächs – Datum 2024 ergibt K-24-…. Nachträge sind ab {PROTOKOLL_AB_JAHR} möglich.</p>
         <div className="flex flex-wrap items-end gap-2 border-t border-border pt-4">
-          <button className="btn btn-cta" onClick={erstgespraech} disabled={arbeitet}>2. + Erstgespräch (neue Chiffre)</button>
+          <button className="btn btn-cta" onClick={erstgespraechStarten} disabled={arbeitet}>2. + Erstgespräch (neue Klient:in)</button>
           <span className="px-2 pb-2.5 text-sm text-text-subtle">oder</span>
           <label className="min-w-44">Beratungsgespräch zu
             <select value={folgeAkte} onChange={(e) => waehleFolgeAkte(e.target.value)} className="mt-1 block w-full rounded-md border border-border-input bg-surface px-3 py-2.5 text-base">
@@ -89,6 +100,23 @@ export default function Protokolle() {
           <button className="btn btn-primary" onClick={beratungsgespraech} disabled={arbeitet}>2. + Beratungsgespräch</button>
         </div>
       </div>
+      {klient && (
+        <div className="karte space-y-4 border-2 border-sage" role="dialog" aria-label="Neue Klientin / neuer Klient">
+          <h2 className="font-heading text-heading">Neue Klientin / neuer Klient</h2>
+          <p className="text-sm text-text-muted">Der Name steht nur verschlüsselt im Register, nie im Protokoll. Die Chiffre wird automatisch vergeben (Jahr {neu.datum.slice(0, 4)}).</p>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <label>Vorname<input autoFocus value={klient.vorname} onChange={(e) => setKlient({ ...klient, vorname: e.target.value })} autoComplete="off" /></label>
+            <label>Nachname<input value={klient.nachname} onChange={(e) => setKlient({ ...klient, nachname: e.target.value })} autoComplete="off" /></label>
+            <label>Hinweis (optional)<input value={klient.notiz} onChange={(e) => setKlient({ ...klient, notiz: e.target.value })} autoComplete="off" /></label>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button className="btn btn-cta" onClick={() => void erstgespraech(true)} disabled={arbeitet}>Anlegen und Erstgespräch beginnen</button>
+            <button className="btn btn-ghost" onClick={() => void erstgespraech(false)} disabled={arbeitet}>Ohne Namen weiter</button>
+            <button className="btn btn-ghost" onClick={() => setKlient(null)} disabled={arbeitet}>Abbrechen</button>
+          </div>
+          <p className="text-xs text-text-subtle">Kommt die Person schon wieder? Dann statt dessen „Beratungsgespräch zu“ mit ihrer Chiffre wählen.</p>
+        </div>
+      )}
       {fehler && <p className="fehler" role="alert">{fehler}</p>}
       {ohneEinwilligung.size > 0 && <p className="hinweis text-sm">Bei {ohneEinwilligung.size} offenen Akte{ohneEinwilligung.size === 1 ? '' : 'n'} ist noch keine Einwilligung zur Verarbeitung der Gesundheitsdaten erfasst. Nachtragen im <Link href="/register">Register</Link> unter „Stammdaten“.</p>}
 

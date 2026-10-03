@@ -8,7 +8,8 @@ import { TeilnahmeAnsicht } from '@/components/TeilnahmeAnsicht'
 import { datum, heute } from '@/lib/format'
 import { akteZuordnen, leereAkteEntfernen } from '@/lib/akten'
 import { protokolliere } from '@/lib/konto'
-import { aktualisiereRegister, ladeAkten, ladeRegister, ladeSitzungen, neueAkte, neueSitzung, type Akte, type RegisterInhalt } from '@/lib/protokolle/daten'
+import { zeigeMeldung } from '@/lib/meldung'
+import { aktualisiereRegister, ladeAkten, ladeRegister, ladeSitzungen, neueAkte, neueSitzung, registerNamenMigrieren, vollerName, type Akte, type RegisterInhalt } from '@/lib/protokolle/daten'
 import { pruefeDatum, PROTOKOLL_AB_JAHR } from '@/lib/protokolle/modell'
 import { useTresor } from '@/lib/tresor'
 
@@ -28,11 +29,14 @@ export default function Register() {
   const [auskunft, setAuskunft] = useState<string | null>(null)
   const [teilnahme, setTeilnahme] = useState<Zeile | null>(null)
   const [zuordnen, setZuordnen] = useState<{ quelle: Zeile; ziel: string } | null>(null)
-  const [meldung, setMeldung] = useState('')
-  const [neu, setNeu] = useState({ name: '', notiz: '', datum: heute(), ausbildung: false })
+  const LEER_NEU = { vorname: '', nachname: '', notiz: '', datum: heute(), ausbildung: false }
+  const [neu, setNeu] = useState(LEER_NEU)
   useEffect(() => { laden().catch((e) => setFehler((e as Error).message)) }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function laden() {
+    // Einmalig: bisheriges Feld „Name“ in Vorname/Nachname teilen (nur im Browser möglich – verschlüsselt)
+    const umgestellt = await registerNamenMigrieren(tresor.schluessel('zone_c'))
+    if (umgestellt) { await protokolliere('register_namen_geteilt', `${umgestellt} Einträge`); zeigeMeldung(`${umgestellt} Namen in Vorname und Nachname aufgeteilt – bitte kurz prüfen.`) }
     const [reg, akten, sitzungen] = await Promise.all([ladeRegister(tresor.schluessel('zone_c')), ladeAkten(), ladeSitzungen()])
     const akteVon = new Map(akten.map((a) => [a.id, a]))
     const letzte = new Map<string, string>()
@@ -44,20 +48,20 @@ export default function Register() {
     setFehler('')
     try {
       const { id, akte: _a, letzteSitzung: _l, ...inhalt } = z
-      await aktualisiereRegister(tresor.schluessel('zone_c'), id, inhalt)
+      await aktualisiereRegister(tresor.schluessel('zone_c'), id, { ...inhalt, vorname: inhalt.vorname?.trim() ?? '', nachname: inhalt.nachname?.trim() ?? '', name: vollerName(inhalt.vorname, inhalt.nachname) || undefined })
       await protokolliere('register_geaendert', z.chiffre)
-      setBearbeiten(null); await laden()
+      setBearbeiten(null); zeigeMeldung(`${z.chiffre} gespeichert.`); await laden()
     } catch (err) { setFehler((err as Error).message) }
   }
 
   /** Leere Akte (ohne Gespräche) löschen */
   async function loeschen(z: Zeile) {
     if (!confirm(`${z.chiffre}${z.name ? ` (${z.name})` : ''} endgültig löschen? Name, Hinweis und Stammdaten dieser Chiffre werden entfernt.`)) return
-    setFehler(''); setMeldung('')
+    setFehler('')
     try {
       await leereAkteEntfernen(tresor.schluessel('zone_a'), tresor.schluessel('zone_c'), z.akte_id)
       await protokolliere('akte_entfernt', z.chiffre)
-      setMeldung(`${z.chiffre} gelöscht.`); await laden()
+      zeigeMeldung(`${z.chiffre} gelöscht.`); await laden()
     } catch (err) { setFehler((err as Error).message) }
   }
 
@@ -67,22 +71,23 @@ export default function Register() {
     const ziel = zeilen.find((x) => x.akte_id === zuordnen.ziel)!
     const q = zuordnen.quelle
     if (ziel.name && q.name && ziel.name !== q.name && !confirm(`Unter ${ziel.chiffre} steht schon der Name „${ziel.name}“. Durch „${q.name}“ ersetzen?`)) return
-    setFehler(''); setMeldung('')
+    setFehler('')
     try {
       await akteZuordnen(tresor.schluessel('zone_c'), q.akte_id, ziel.akte_id)
       await protokolliere('akte_zugeordnet', `${q.chiffre} → ${ziel.chiffre}`)
-      setZuordnen(null); setMeldung(`${q.name || q.chiffre} ist jetzt mit ${ziel.chiffre} verknüpft; ${q.chiffre} wurde entfernt.`); await laden()
+      setZuordnen(null); zeigeMeldung(`${q.name || q.chiffre} ist jetzt mit ${ziel.chiffre} verknüpft; ${q.chiffre} wurde entfernt.`); await laden()
     } catch (err) { setFehler((err as Error).message) }
   }
 
   async function anlegen(mitErstgespraech: boolean) {
-    if (!neu.name.trim()) { setFehler('Bitte einen Namen eingeben.'); return }
+    if (!neu.vorname.trim() && !neu.nachname.trim()) { setFehler('Bitte Vor- und Nachnamen eingeben.'); return }
     const f = pruefeDatum(neu.datum); if (f) { setFehler(f); return }
     setFehler(''); setArbeitet(true)
     try {
-      const akte = await neueAkte(tresor.schluessel('zone_c'), { name: neu.name.trim(), notiz: neu.notiz.trim() || undefined }, Number(neu.datum.slice(0, 4)))
+      const akte = await neueAkte(tresor.schluessel('zone_c'), { vorname: neu.vorname.trim(), nachname: neu.nachname.trim(), name: vollerName(neu.vorname, neu.nachname), notiz: neu.notiz.trim() || undefined }, Number(neu.datum.slice(0, 4)))
       await protokolliere('akte_angelegt', akte.chiffre)
-      setNeu({ name: '', notiz: '', datum: heute(), ausbildung: false })
+      if (!mitErstgespraech) zeigeMeldung(`${akte.chiffre} angelegt.`)
+      setNeu(LEER_NEU)
       if (mitErstgespraech) { const s = await neueSitzung(akte.id, 'erst', { datum: neu.datum, in_ausbildung: neu.ausbildung }); router.push(`/protokolle/${s.id}`); return }
       await laden()
     } catch (err) { setFehler((err as Error).message) } finally { setArbeitet(false) }
@@ -92,7 +97,7 @@ export default function Register() {
   if (teilnahme) return <TeilnahmeAnsicht akteId={teilnahme.akte_id} name={teilnahme.name ?? ''} chiffre={teilnahme.chiffre} schliessen={() => setTeilnahme(null)} />
 
   const q = suche.trim().toLowerCase()
-  const gefiltert = zeilen.filter((z) => !q || [z.chiffre, z.name, z.kuerzel_alt, z.notiz].some((w) => w?.toLowerCase().includes(q)))
+  const gefiltert = zeilen.filter((z) => !q || [z.chiffre, z.name, z.vorname, z.nachname, z.kuerzel_alt, z.notiz].some((w) => w?.toLowerCase().includes(q)))
 
   return (
     <div className="space-y-6">
@@ -104,7 +109,8 @@ export default function Register() {
       <div className="karte space-y-3">
         <h2 className="font-heading text-heading">Neue Klientin / neuer Klient</h2>
         <div className="grid gap-3 sm:grid-cols-2">
-          <label>Name<input value={neu.name} onChange={(e) => setNeu({ ...neu, name: e.target.value })} autoComplete="off" /></label>
+          <label>Vorname<input value={neu.vorname} onChange={(e) => setNeu({ ...neu, vorname: e.target.value })} autoComplete="off" /></label>
+          <label>Nachname<input value={neu.nachname} onChange={(e) => setNeu({ ...neu, nachname: e.target.value })} autoComplete="off" /></label>
           <label>Hinweis (optional)<input value={neu.notiz} onChange={(e) => setNeu({ ...neu, notiz: e.target.value })} autoComplete="off" /></label>
           <label>Erstgespräch am<input type="date" value={neu.datum} min={`${PROTOKOLL_AB_JAHR}-01-01`} max={`${new Date().getFullYear()}-12-31`} onChange={(e) => setNeu({ ...neu, datum: e.target.value })} /></label>
           <label className="flex items-center gap-2 self-end pb-2.5 text-sm font-normal text-text"><input type="checkbox" checked={neu.ausbildung} onChange={(e) => setNeu({ ...neu, ausbildung: e.target.checked })} /> in Ausbildung (Vermerk im Protokoll)</label>
@@ -120,7 +126,6 @@ export default function Register() {
 
       <label className="max-w-sm">Suche (Name, Chiffre, Hinweis)<input value={suche} onChange={(e) => setSuche(e.target.value)} autoComplete="off" /></label>
 
-      {meldung && <p className="hinweis" role="status">{meldung}</p>}
       <ul className="karte divide-y divide-border p-0">
         {gefiltert.map((z) => {
           const ohneGespraech = !z.letzteSitzung
@@ -128,7 +133,8 @@ export default function Register() {
             <li key={z.id} className="space-y-3 bg-background px-4 py-4">
               <p className="font-semibold tabular-nums">{z.chiffre}</p>
               <div className="grid gap-3 sm:grid-cols-2">
-                <label>Name<input value={bearbeiten.name ?? ''} onChange={(e) => setBearbeiten({ ...bearbeiten, name: e.target.value })} autoComplete="off" /></label>
+                <label>Vorname<input value={bearbeiten.vorname ?? ''} onChange={(e) => setBearbeiten({ ...bearbeiten, vorname: e.target.value })} autoComplete="off" /></label>
+                <label>Nachname<input value={bearbeiten.nachname ?? ''} onChange={(e) => setBearbeiten({ ...bearbeiten, nachname: e.target.value })} autoComplete="off" /></label>
                 <label>Hinweis<input value={bearbeiten.notiz ?? ''} onChange={(e) => setBearbeiten({ ...bearbeiten, notiz: e.target.value })} autoComplete="off" /></label>
                 <label className="sm:col-span-2">Adresse für Honorarnoten (optional)<textarea rows={2} value={bearbeiten.adresse ?? ''} onChange={(e) => setBearbeiten({ ...bearbeiten, adresse: e.target.value })} className="mt-1 block w-full rounded-md border border-border-input bg-surface p-2 text-base" /></label>
               </div>
@@ -141,7 +147,7 @@ export default function Register() {
           return (
             <li key={z.id} className="px-4 py-4">
               <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-                <p><span className="font-semibold tabular-nums">{z.chiffre}</span> · {z.name || <span className="text-text-subtle">noch kein Name</span>}
+                <p><span className="font-semibold tabular-nums">{z.chiffre}</span> · {z.nachname || z.vorname ? <><b className="font-semibold">{z.nachname}</b>{z.vorname && `, ${z.vorname}`}</> : z.name || <span className="text-text-subtle">noch kein Name</span>}
                   {(z.notiz || z.kuerzel_alt) && <span className="text-text-muted"> · {[z.notiz, z.kuerzel_alt && `altes Kürzel ${z.kuerzel_alt}`].filter(Boolean).join(' · ')}</span>}</p>
                 <p className="text-sm text-text-muted">Einwilligung {z.akte?.einwilligung_am ? datum(z.akte.einwilligung_am) : <span className="font-medium text-accent-strong">fehlt</span>} · {ohneGespraech ? 'noch kein Gespräch' : `letztes Gespräch ${datum(z.letzteSitzung!)}`}</p>
               </div>

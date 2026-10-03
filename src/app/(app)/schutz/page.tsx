@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Geraete } from '@/components/Geraete'
 import { Sicherung } from '@/components/Sicherung'
 import { abmelden, aktiveFreigabe, freigabeBeenden, freigeben, ladeAudit, ladeFreigaben, ladePasskeys, protokolliere, type Freigabe, type PasskeyEintrag } from '@/lib/konto'
+import { zeigeMeldung } from '@/lib/meldung'
 import { supabaseBrowser } from '@/lib/supabase/client'
 import { useTresor } from '@/lib/tresor'
 
@@ -64,12 +65,12 @@ export default function Schutz() {
         {aktiv ? (
           <div className="flex flex-wrap items-center gap-3">
             <span className="hinweis">Freigegeben bis {zeit(aktiv.gueltig_bis)}</span>
-            <button className="btn btn-cta" onClick={() => void freigabeBeenden(aktiv.id).then(laden).catch((e) => setFehler(e.message))}>Freigabe jetzt beenden</button>
+            <button className="btn btn-cta" onClick={() => void freigabeBeenden(aktiv.id).then(() => zeigeMeldung('Support-Freigabe beendet.')).then(laden).catch((e) => setFehler(e.message))}>Freigabe jetzt beenden</button>
           </div>
         ) : (
           <div className="flex flex-wrap gap-2">
             {[[1, '1 Stunde'], [24, '24 Stunden'], [168, '7 Tage']].map(([h, t]) => (
-              <button key={h} className="btn btn-ghost" onClick={() => { if (confirm(`Support ${t} lang freigeben? Du kannst die Freigabe jederzeit beenden.`)) void freigeben(h as number).then(laden).catch((e) => setFehler(e.message)) }}>{t} freigeben</button>
+              <button key={h} className="btn btn-ghost" onClick={() => { if (confirm(`Support ${t} lang freigeben? Du kannst die Freigabe jederzeit beenden.`)) void freigeben(h as number).then(() => zeigeMeldung(`Support für ${t} freigegeben.`)).then(laden).catch((e) => setFehler(e.message)) }}>{t} freigeben</button>
             ))}
           </div>
         )}

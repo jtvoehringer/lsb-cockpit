@@ -7,6 +7,7 @@ import { datum, heute, zahl } from '@/lib/format'
 import { alsBezahlt, ausstellen, ladeHonorarnoten, offeneSitzungen, positionsBetrag, stornieren, summe, type Honorarnote, type Position } from '@/lib/finanzen/honorarnoten'
 import { betragAusText, euro, ZAHLUNGSART, type Zahlungsart } from '@/lib/finanzen/modell'
 import { protokolliere } from '@/lib/konto'
+import { zeigeMeldung } from '@/lib/meldung'
 import { ladeAkten, ladeRegister, ladeSitzungen, type Akte, type Sitzung } from '@/lib/protokolle/daten'
 import { ART } from '@/lib/protokolle/modell'
 import { useTresor } from '@/lib/tresor'
@@ -61,6 +62,7 @@ export default function Honorarnoten() {
     try {
       const id = await ausstellen(kA(), { akte_id: neu.akte_id, chiffre: chiffreVon.get(neu.akte_id) ?? '', datum: neu.datum, sitzung_ids: offen.filter((s) => neu.gewaehlt.has(s.id)).map((s) => s.id), inhalt: { empfaenger: { name: neu.name.trim(), adresse: neu.adresse.trim() }, positionen, hinweis: einst?.hinweis ?? '' }, sofortBezahlt: neu.sofort || undefined })
       await protokolliere('honorarnote_ausgestellt')
+      zeigeMeldung('Honorarnote ausgestellt.')
       router.push(`/finanzen/honorarnoten/${id}`)
     } catch (x) { setFehler((x as Error).message); setArbeitet(false) }
   }
@@ -68,13 +70,13 @@ export default function Honorarnoten() {
   async function bezahltSpeichern() {
     const n = noten?.find((x) => x.id === zahlung?.id)
     if (!n || !zahlung) return
-    try { await alsBezahlt(kA(), n, chiffreVon.get(n.akte_id) ?? '', zahlung.datum, zahlung.art); await protokolliere('honorarnote_bezahlt', n.nummer); setZahlung(null); await laden() }
+    try { await alsBezahlt(kA(), n, chiffreVon.get(n.akte_id) ?? '', zahlung.datum, zahlung.art); await protokolliere('honorarnote_bezahlt', n.nummer); zeigeMeldung(`Honorarnote ${n.nummer} als bezahlt gebucht.`); setZahlung(null); await laden() }
     catch (x) { setFehler((x as Error).message) }
   }
 
   async function storno(n: Honorarnote) {
     if (!confirm(`Honorarnote ${n.nummer} stornieren?${n.buchung_id ? ' Die gebuchte Einnahme wird entfernt.' : ''} Die Nummer bleibt vergeben.`)) return
-    try { await stornieren(n); await protokolliere('honorarnote_storniert', n.nummer); await laden() } catch (x) { setFehler((x as Error).message) }
+    try { await stornieren(n); await protokolliere('honorarnote_storniert', n.nummer); zeigeMeldung(`Honorarnote ${n.nummer} storniert.`); await laden() } catch (x) { setFehler((x as Error).message) }
   }
 
   const aktenMitOffenen = akten.map((a) => ({ a, anzahl: offeneSitzungen(sitzungen, noten ?? [], a.id).length })).filter((x) => x.anzahl > 0)
