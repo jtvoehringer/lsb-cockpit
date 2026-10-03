@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { DiktatFeld } from '@/components/DiktatFeld'
 import brand from '@/config/brand.config'
 import { datum, stunden, zahl, zeitpunkt } from '@/lib/format'
+import { AUSDRUCK_LEER, ladeAusdruck, type ProtokollAusdruck } from '@/lib/einstellungen'
 import { protokolliere } from '@/lib/konto'
 import {
   chiffreAnJahrAnpassen, entschluesseleVersion, entwurfLoeschen, ladeAkten, ladeInhalt, ladeRegister, ladeSitzung, speichereEntwurf, versionAnhaengen,
@@ -32,6 +33,7 @@ export default function ProtokollBearbeiten() {
   const [fehler, setFehler] = useState('')
   const [ansicht, setAnsicht] = useState<{ v: Version; inhalt: Inhalt } | null>(null)
   const [pruefung, setPruefung] = useState<{ treffer: Treffer[]; bestaetigt: boolean } | null>(null)
+  const [ausdruck, setAusdruck] = useState<ProtokollAusdruck>(AUSDRUCK_LEER)
   const geaendert = useRef(false)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -44,6 +46,7 @@ export default function ProtokollBearbeiten() {
   }, [id, tresor])
 
   useEffect(() => { laden().catch((e) => setFehler(e.message)) }, [laden])
+  useEffect(() => { ladeAusdruck().then(setAusdruck).catch(() => {}) }, [])
 
   const entwurf = s?.protokoll_status === 'entwurf'
   const bearbeitbar = entwurf || korrektur
@@ -234,7 +237,13 @@ export default function ProtokollBearbeiten() {
       <div className="nur-druck">
         <div className="flex items-start justify-between border-b border-border pb-2 text-xs text-text-muted"><span>{brand.appName} · vertraulich (§ 119 GewO)</span><img src="/brand/bildmarke.svg" alt="" width={36} height={27} /></div>
         <h1 className="mt-3 font-heading text-2xl text-heading">{art.titel}</h1>
-        {kopf.in_ausbildung && <p className="mt-1 text-sm font-semibold">{AUSBILDUNG_VERMERK}</p>}
+        {kopf.in_ausbildung && ausdruck.beraterin ? (
+          <div className="mt-2 text-sm">
+            <p><b>LSB in Ausbildung:</b> {ausdruck.beraterin}</p>
+            {ausdruck.institut && <p>Ausbildungsinstitut: {ausdruck.institut}</p>}
+          </div>
+        ) : kopf.in_ausbildung ? <p className="mt-1 text-sm font-semibold">{AUSBILDUNG_VERMERK}</p>
+          : ausdruck.beraterin && <p className="mt-2 text-sm"><b>Lebens- und Sozialberaterin:</b> {ausdruck.beraterin}</p>}
         <table className="druck-tabelle mt-3 w-full text-xs">
           <tbody>
             <tr><th>Protokoll-Nr.</th><th>Chiffre</th><th>Datum</th><th>Zeit (von–bis)</th><th>Dauer</th><th>Einheiten (50 Min.)</th></tr>

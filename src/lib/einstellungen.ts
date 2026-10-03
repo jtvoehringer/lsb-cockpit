@@ -62,3 +62,24 @@ export function ibanGueltig(iban: string): boolean {
 }
 
 export const ibanFormatiert = (iban: string) => iban.replace(/\s/g, '').toUpperCase().replace(/(.{4})/g, '$1 ').trim()
+
+// ---------- Protokoll-Ausdruck (praxis.einstellungen.protokoll) ----------
+// Name der Beraterin und Ausbildungsinstitut für den Kopf des gedruckten Protokolls (keine Klientendaten).
+
+export type ProtokollAusdruck = { beraterin: string; institut: string }
+export const AUSDRUCK_LEER: ProtokollAusdruck = { beraterin: '', institut: '' }
+
+export async function ladeAusdruck(): Promise<ProtokollAusdruck> {
+  const p = await praxis()
+  const { data, error } = await supabaseBrowser().from('praxis').select('einstellungen').eq('id', p.id).single()
+  if (error) throw error
+  return { ...AUSDRUCK_LEER, ...((data?.einstellungen as { protokoll?: Partial<ProtokollAusdruck> })?.protokoll ?? {}) }
+}
+
+export async function speichereAusdruck(a: ProtokollAusdruck) {
+  const p = await praxis()
+  const { data } = await supabaseBrowser().from('praxis').select('einstellungen').eq('id', p.id).single()
+  const alt = (data?.einstellungen ?? {}) as Record<string, unknown>
+  const { error } = await supabaseBrowser().from('praxis').update({ einstellungen: { ...alt, protokoll: a } }).eq('id', p.id)
+  if (error) throw error
+}

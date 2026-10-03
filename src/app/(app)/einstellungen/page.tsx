@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { ibanFormatiert, ibanGueltig, ladeEinstellungen, ladeFristen, LEER, speichereEinstellungen, speichereFristen, type PraxisEinstellungen } from '@/lib/einstellungen'
+import { AUSDRUCK_LEER, ibanFormatiert, ibanGueltig, ladeAusdruck, ladeEinstellungen, ladeFristen, LEER, speichereAusdruck, speichereEinstellungen, speichereFristen, type PraxisEinstellungen, type ProtokollAusdruck } from '@/lib/einstellungen'
 import { FRISTEN_STANDARD, pruefeFristEinstellungen, type FristEinstellungen } from '@/lib/fristen'
 import { betragAusText, euro } from '@/lib/finanzen/modell'
 import { protokolliere } from '@/lib/konto'
@@ -57,6 +57,7 @@ export default function Einstellungen() {
       </div>
       {fehler && <p className="fehler" role="alert">{fehler}</p>}
       <div className="flex items-center gap-3"><button className="btn btn-cta">Speichern</button><span className="text-sm text-text-subtle" aria-live="polite">{stand}</span></div>
+      <AusdruckEinstellungen />
       <FristenEinstellungen />
     </form>
   )
@@ -89,6 +90,30 @@ function FristenEinstellungen() {
       <p className="text-xs text-text-subtle sm:col-span-3">Voreingestellt laut Anforderungsaufnahme (3 / 7 Jahre, Minderjährige ab Volljährigkeit) – bitte rechtlich bestätigen lassen. Änderungen gelten für künftig abgeschlossene Akten; bereits berechnete Fristen bleiben.</p>
       {fehler && <p className="fehler sm:col-span-3" role="alert">{fehler}</p>}
       <div className="flex items-center gap-3 sm:col-span-3"><button type="button" className="btn btn-primary" onClick={() => void speichern()}>Fristen speichern</button><span className="text-sm text-text-subtle" aria-live="polite">{stand}</span></div>
+    </div>
+  )
+}
+
+/** Kopf des gedruckten Protokolls: Name der Beraterin, bei Protokollen „in Ausbildung“ zusätzlich das Ausbildungsinstitut */
+function AusdruckEinstellungen() {
+  const [a, setA] = useState<ProtokollAusdruck>(AUSDRUCK_LEER)
+  const [stand, setStand] = useState('')
+  const [fehler, setFehler] = useState('')
+  useEffect(() => { ladeAusdruck().then(setA).catch((x) => setFehler(x.message)) }, [])
+
+  async function speichern() {
+    setStand(''); setFehler('')
+    try { await speichereAusdruck({ beraterin: a.beraterin.trim(), institut: a.institut.trim() }); await protokolliere('einstellungen_geaendert', 'Protokoll-Ausdruck'); setStand('Gespeichert.') } catch (x) { setFehler((x as Error).message) }
+  }
+
+  return (
+    <div className="karte grid gap-4 sm:grid-cols-2">
+      <h2 className="font-heading text-heading sm:col-span-2">Protokoll-Ausdruck</h2>
+      <label>Name der Beraterin<input value={a.beraterin} onChange={(x) => setA({ ...a, beraterin: x.target.value })} autoComplete="name" /></label>
+      <label>Ausbildungsinstitut (mit Adresse)<input value={a.institut} onChange={(x) => setA({ ...a, institut: x.target.value })} placeholder="z. B. ROK Akademie (Trattnerhof 2, 1010 Wien)" /></label>
+      <p className="text-xs text-text-subtle sm:col-span-2">Erscheint im gedruckten Protokoll unter dem Titel. Bei Protokollen mit Häkchen „in Ausbildung“: „LSB in Ausbildung: Name“ und „Ausbildungsinstitut: …“, sonst „Lebens- und Sozialberaterin: Name“.</p>
+      {fehler && <p className="fehler sm:col-span-2" role="alert">{fehler}</p>}
+      <div className="flex items-center gap-3 sm:col-span-2"><button type="button" className="btn btn-primary" onClick={() => void speichern()}>Ausdruck speichern</button><span className="text-sm text-text-subtle" aria-live="polite">{stand}</span></div>
     </div>
   )
 }
