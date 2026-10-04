@@ -90,10 +90,21 @@ export async function setzeEinwilligungAkte(akteId: string, datum: string | null
   if (error) throw error
 }
 
-// ---------- Dokumente (Scans unterschriebener Formulare) ----------
+// ---------- Dokumente und Dateien (unterschriebene Formulare, Unterlagen, Korrespondenz …) ----------
+// Jede Dateiart; Inhalt und Metadaten (Name, Typ, Art, Bezeichnung) nur verschlüsselt (K_A). Der Server sieht Größe und Zeitpunkt.
 
-export type DokumentInfo = { id: string; pfad: string; name: string; typ: string; groesse: number; art: EinwilligungsArt | 'sonstiges'; erstellt_am: string }
-const MAX_BYTES = 10 * 1024 * 1024
+export type DokumentArt = EinwilligungsArt | 'unterlage' | 'korrespondenz' | 'sonstiges'
+export type DokumentInfo = { id: string; pfad: string; name: string; typ: string; groesse: number; art: DokumentArt; bezeichnung?: string; erstellt_am: string }
+export const DATEI_MAX_MB = 14
+const MAX_BYTES = DATEI_MAX_MB * 1024 * 1024
+
+/** Anzeigenamen der Dokumentarten */
+export function dokumentArtTitel(art: DokumentArt): string {
+  if (art === 'unterlage') return 'Unterlagen / Befunde'
+  if (art === 'korrespondenz') return 'Korrespondenz'
+  if (art === 'sonstiges') return 'Sonstiges'
+  return EINWILLIGUNGEN[art]?.titel ?? art
+}
 
 export async function ladeDokumente(kA: CryptoKey, stammdatenId: string): Promise<DokumentInfo[]> {
   const { data, error } = await sb().from('stammdaten_dokument').select('id, pfad, meta_enc, erstellt_am').eq('stammdaten_id', stammdatenId).order('erstellt_am')
@@ -103,15 +114,15 @@ export async function ladeDokumente(kA: CryptoKey, stammdatenId: string): Promis
   return out
 }
 
-export async function dokumentHochladen(kA: CryptoKey, stammdatenId: string, datei: File, art: DokumentInfo['art']) {
-  if (datei.size > MAX_BYTES) throw new Error('Datei ist größer als 10 MB.')
+export async function dokumentHochladen(kA: CryptoKey, stammdatenId: string, datei: File, art: DokumentArt, bezeichnung?: string) {
+  if (datei.size > MAX_BYTES) throw new Error(`„${datei.name}“ ist größer als ${DATEI_MAX_MB} MB.`)
   const p = await praxis()
   const id = crypto.randomUUID()
   const pfad = `${p.id}/${crypto.randomUUID()}`
   const inhalt = await verschluesseleBytes(kA, await datei.arrayBuffer(), aad('stammdaten_dokument', id, 'datei'))
   const { error } = await sb().storage.from('dokumente').upload(pfad, new Blob([inhalt], { type: 'application/octet-stream' }), { contentType: 'application/octet-stream', upsert: false })
   if (error) throw error
-  const meta_enc = await verschluessele(kA, JSON.stringify({ name: datei.name, typ: datei.type || 'application/octet-stream', groesse: datei.size, art }), aad('stammdaten_dokument', id, 'meta'))
+  const meta_enc = await verschluessele(kA, JSON.stringify({ name: datei.name, typ: datei.type || 'application/octet-stream', groesse: datei.size, art, ...(bezeichnung ? { bezeichnung } : {}) }), aad('stammdaten_dokument', id, 'meta'))
   const { error: e2 } = await sb().from('stammdaten_dokument').insert({ id, praxis_id: p.id, stammdaten_id: stammdatenId, pfad, meta_enc })
   if (e2) { await sb().storage.from('dokumente').remove([pfad]); throw e2 }
 }

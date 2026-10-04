@@ -6,25 +6,29 @@ import { protokolliere } from '@/lib/konto'
 import { zeigeMeldung } from '@/lib/meldung'
 import { aktualisiereRegister, type Akte, type RegisterInhalt } from '@/lib/protokolle/daten'
 import {
-  dokumentHochladen, dokumentLoeschen, dokumentOeffnen, EINWILLIGUNGEN, gueltigeEinwilligung, heuteIso, ladeDokumente, ladeStammdaten,
-  leereStammdaten, pruefeStammdaten, setzeEinwilligungAkte, speichereStammdaten, type DokumentInfo, type EinwilligungsArt, type StammdatenInhalt,
+  DATEI_MAX_MB, dokumentArtTitel, dokumentHochladen, dokumentLoeschen, dokumentOeffnen, EINWILLIGUNGEN, gueltigeEinwilligung, heuteIso, ladeDokumente, ladeStammdaten,
+  leereStammdaten, pruefeStammdaten, setzeEinwilligungAkte, speichereStammdaten, type DokumentArt, type DokumentInfo, type EinwilligungsArt, type StammdatenInhalt,
 } from '@/lib/stammdaten'
 import { useTresor } from '@/lib/tresor'
 
 type Zeile = RegisterInhalt & { id: string; akte?: Akte }
 const ARTEN = Object.keys(EINWILLIGUNGEN) as EinwilligungsArt[]
-const DOK_ART: Record<DokumentInfo['art'], string> = { ...Object.fromEntries(ARTEN.map((a) => [a, EINWILLIGUNGEN[a].titel])), sonstiges: 'Sonstiges' } as Record<DokumentInfo['art'], string>
+const DOK_ARTEN: DokumentArt[] = ['unterlage', 'korrespondenz', ...ARTEN, 'sonstiges']
+const groesse = (b: number) => (b >= 1024 * 1024 ? `${(b / 1024 / 1024).toFixed(1).replace('.', ',')} MB` : `${Math.max(1, Math.round(b / 1024))} KB`)
 
-export function StammdatenPanel({ zeile, schliessen, gespeichert }: { zeile: Zeile; schliessen: () => void; gespeichert: () => Promise<void> }) {
+export function StammdatenPanel({ zeile, schliessen, gespeichert, zuDateien = false }: { zeile: Zeile; schliessen: () => void; gespeichert: () => Promise<void>; zuDateien?: boolean }) {
   const tresor = useTresor()
   const kA = useCallback(() => tresor.schluessel('zone_a'), [tresor])
   const [id, setId] = useState<string | null>(zeile.stammdaten_id ?? null)
   const [s, setS] = useState<StammdatenInhalt | null>(null)
   const [doks, setDoks] = useState<DokumentInfo[]>([])
-  const [dokArt, setDokArt] = useState<DokumentInfo['art']>('datenschutz')
+  const [dokArt, setDokArt] = useState<DokumentArt>('unterlage')
+  const [bezeichnung, setBezeichnung] = useState('')
   const [fehler, setFehler] = useState('')
   const [hinweis, setHinweis] = useState('')
   const [arbeitet, setArbeitet] = useState(false)
+  // Aus dem Register über „Dateien“ geöffnet: nach dem Laden gleich zum Datei-Bereich
+  useEffect(() => { if (zuDateien && s) document.getElementById('dateien')?.scrollIntoView({ behavior: 'smooth', block: 'start' }) }, [zuDateien, s])
 
   useEffect(() => {
     if (!zeile.stammdaten_id) { setS(leereStammdaten()); return }
@@ -55,14 +59,17 @@ export function StammdatenPanel({ zeile, schliessen, gespeichert }: { zeile: Zei
     catch (e) { setFehler((e as Error).message) } finally { setArbeitet(false) }
   }
 
-  async function hochladen(datei: File | undefined) {
-    if (!datei || !s) return
+  async function hochladen(dateien: File[]) {
+    if (!dateien.length || !s) return
+    const zuGross = dateien.filter((d) => d.size > DATEI_MAX_MB * 1024 * 1024)
+    if (zuGross.length) { setFehler(`Zu groß (höchstens ${DATEI_MAX_MB} MB je Datei): ${zuGross.map((d) => d.name).join(', ')}`); return }
     setFehler(''); setArbeitet(true)
     try {
-      const sid = id ?? await sichern(s) // Dokumente brauchen einen gespeicherten Datensatz
-      await dokumentHochladen(kA(), sid, datei, dokArt)
-      setDoks(await ladeDokumente(kA(), sid))
-      await protokolliere('dokument_hochgeladen', zeile.chiffre)
+      const sid = id ?? await sichern(s) // Dateien brauchen einen gespeicherten Stammdatensatz
+      for (const d of dateien) await dokumentHochladen(kA(), sid, d, dokArt, bezeichnung.trim() || undefined)
+      setDoks(await ladeDokumente(kA(), sid)); setBezeichnung('')
+      await protokolliere('dokument_hochgeladen', `${zeile.chiffre} · ${dateien.length} Datei${dateien.length === 1 ? '' : 'en'}`)
+      zeigeMeldung(`${dateien.length} Datei${dateien.length === 1 ? '' : 'en'} verschlüsselt hochgeladen (${zeile.chiffre}).`)
     } catch (e) { setFehler((e as Error).message) } finally { setArbeitet(false) }
   }
 
@@ -120,28 +127,29 @@ export function StammdatenPanel({ zeile, schliessen, gespeichert }: { zeile: Zei
         </div>
       </div>
 
-      <div className="space-y-2">
-        <h3 className="font-heading text-heading">Unterschriebene Dokumente</h3>
-        <p className="text-xs text-text-subtle">Scan oder Foto des unterschriebenen Formulars. Wird auf diesem Gerät verschlüsselt, bevor es hochgeladen wird.</p>
+      <div className="space-y-3" id="dateien">
+        <h3 className="font-heading text-heading">Dateien{doks.length ? ` (${doks.length})` : ''}</h3>
+        <p className="text-xs text-text-subtle">Unterschriebene Formulare, Befunde, Schreiben – als PDF oder Bild (Scan, Foto) bis {DATEI_MAX_MB} MB, auch mehrere auf einmal. Jede Datei wird auf diesem Gerät verschlüsselt, bevor sie hochgeladen wird.</p>
         {doks.length > 0 && (
           <ul className="divide-y divide-border text-sm">
             {doks.map((d) => (
               <li key={d.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
-                <span><b>{DOK_ART[d.art]}</b> · {d.name} <span className="text-text-muted">· {datum(d.erstellt_am)}</span></span>
+                <span className="min-w-0 break-words"><b>{dokumentArtTitel(d.art)}</b>{d.bezeichnung && ` · ${d.bezeichnung}`} · {d.name} <span className="text-text-muted">· {groesse(d.groesse)} · {datum(d.erstellt_am)}</span></span>
                 <span className="flex gap-2">
                   <button type="button" className="btn btn-ghost px-3 py-1 text-xs" onClick={() => void oeffnen(d)}>Öffnen</button>
-                  <button type="button" className="btn btn-ghost px-3 py-1 text-xs" onClick={() => { if (confirm(`„${d.name}“ endgültig löschen?`)) void dokumentLoeschen(d).then(async () => { setDoks(await ladeDokumente(kA(), id!)); await protokolliere('dokument_geloescht', zeile.chiffre) }).catch((x) => setFehler(x.message)) }}>Löschen</button>
+                  <button type="button" className="btn btn-ghost px-3 py-1 text-xs" onClick={() => { if (confirm(`„${d.name}“ endgültig löschen?`)) void dokumentLoeschen(d).then(async () => { setDoks(await ladeDokumente(kA(), id!)); await protokolliere('dokument_geloescht', zeile.chiffre); zeigeMeldung(`„${d.name}“ gelöscht.`) }).catch((x) => setFehler(x.message)) }}>Löschen</button>
                 </span>
               </li>
             ))}
           </ul>
         )}
-        <div className="flex flex-wrap items-end gap-2">
-          <label>Art des Dokuments<select value={dokArt} onChange={(e) => setDokArt(e.target.value as DokumentInfo['art'])} className="mt-1 block rounded-md border border-border-input bg-surface px-3 py-2.5">
-            {(Object.keys(DOK_ART) as DokumentInfo['art'][]).map((a) => <option key={a} value={a}>{DOK_ART[a]}</option>)}
+        <div className="grid gap-3 rounded-md bg-background p-3 sm:grid-cols-[auto_1fr_auto] sm:items-end">
+          <label>Art<select value={dokArt} onChange={(e) => setDokArt(e.target.value as DokumentArt)} className="mt-1 block w-full rounded-md border border-border-input bg-surface px-3 py-2.5 text-base">
+            {DOK_ARTEN.map((a) => <option key={a} value={a}>{dokumentArtTitel(a)}</option>)}
           </select></label>
-          <label className="btn btn-ghost cursor-pointer">{arbeitet ? 'Wird verschlüsselt …' : 'Datei oder Foto wählen'}
-            <input type="file" accept="image/*,application/pdf" className="sr-only" disabled={arbeitet} onChange={(e) => { void hochladen(e.target.files?.[0]); e.target.value = '' }} />
+          <label>Bezeichnung (optional)<input value={bezeichnung} onChange={(e) => setBezeichnung(e.target.value)} placeholder="z. B. Befund Hausärztin 03/2026" autoComplete="off" /></label>
+          <label className={`btn btn-cta cursor-pointer ${arbeitet ? 'opacity-60' : ''}`}>{arbeitet ? 'Wird verschlüsselt …' : 'Dateien wählen und hochladen'}
+            <input type="file" multiple accept="image/*,application/pdf" className="sr-only" disabled={arbeitet} onChange={(e) => { void hochladen(Array.from(e.target.files ?? [])); e.target.value = '' }} />
           </label>
         </div>
       </div>

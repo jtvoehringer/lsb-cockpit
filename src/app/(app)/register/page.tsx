@@ -26,6 +26,7 @@ export default function Register() {
   const [suche, setSuche] = useState('')
   const [bearbeiten, setBearbeiten] = useState<Zeile | null>(null)
   const [stamm, setStamm] = useState<Zeile | null>(null)
+  const [stammDateien, setStammDateien] = useState(false)
   const [auskunft, setAuskunft] = useState<string | null>(null)
   const [teilnahme, setTeilnahme] = useState<Zeile | null>(null)
   const [zuordnen, setZuordnen] = useState<{ quelle: Zeile; ziel: string } | null>(null)
@@ -122,7 +123,7 @@ export default function Register() {
         <p className="text-xs text-text-subtle">Die Chiffre wird automatisch vergeben (mit dem Jahr des Erstgesprächs – auch für Nachträge ab {PROTOKOLL_AB_JAHR}). Der Name steht nur verschlüsselt im Register.</p>
       </div>
 
-      {stamm && <StammdatenPanel key={stamm.id} zeile={stamm} schliessen={() => setStamm(null)} gespeichert={laden} />}
+      {stamm && <StammdatenPanel key={stamm.id + (stammDateien ? '-d' : '')} zeile={stamm} zuDateien={stammDateien} schliessen={() => setStamm(null)} gespeichert={laden} />}
 
       <label className="max-w-sm">Suche (Name, Chiffre, Hinweis)<input value={suche} onChange={(e) => setSuche(e.target.value)} autoComplete="off" /></label>
 
@@ -153,7 +154,8 @@ export default function Register() {
               </div>
               <div className="mt-2 flex flex-wrap gap-2">
                 <button className="btn btn-ghost px-3 py-1 text-sm" onClick={() => { setZuordnen(null); setBearbeiten(z) }}>{z.name ? 'Bearbeiten' : 'Name eintragen'}</button>
-                <button className="btn btn-ghost px-3 py-1 text-sm" onClick={() => { setStamm(z); scrollTo({ top: 0, behavior: 'smooth' }) }}>Stammdaten</button>
+                <button className="btn btn-ghost px-3 py-1 text-sm" onClick={() => { setStammDateien(false); setStamm(z); scrollTo({ top: 0, behavior: 'smooth' }) }}>Stammdaten</button>
+                <button className="btn btn-primary px-3 py-1 text-sm" onClick={() => { setStammDateien(true); setStamm(z) }}>📎 Dateien</button>
                 {!ohneGespraech && <Link className="btn btn-ghost px-3 py-1 text-sm no-underline" href={`/protokolle?chiffre=${encodeURIComponent(z.chiffre)}`}>Protokolle</Link>}
                 <button className="btn btn-ghost px-3 py-1 text-sm" onClick={() => setAuskunft(z.akte_id)}>Auskunft</button>
                 {!ohneGespraech && <button className="btn btn-ghost px-3 py-1 text-sm" onClick={() => setTeilnahme(z)}>Bestätigung</button>}

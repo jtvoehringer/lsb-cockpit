@@ -3,7 +3,7 @@
 import { ladeHonorarnoten } from './finanzen/honorarnoten'
 import { ladeAkten, ladeInhalt, ladeRegister, ladeSitzungen, type RegisterInhalt } from './protokolle/daten'
 import { ART, minuten, einheiten } from './protokolle/modell'
-import { EINWILLIGUNGEN, ladeDokumente, ladeStammdaten, type StammdatenInhalt } from './stammdaten'
+import { dokumentArtTitel, EINWILLIGUNGEN, ladeDokumente, ladeStammdaten, type StammdatenInhalt } from './stammdaten'
 
 export type AuskunftSitzung = {
   nr: number; datum: string; art: string; beginn: string | null; ende: string | null; einheiten: number
@@ -46,7 +46,7 @@ export async function sammleAuskunft(k: { a: CryptoKey; b: CryptoKey; c: CryptoK
     person: { name: reg?.name, vorname: reg?.vorname, nachname: reg?.nachname, adresse: reg?.adresse, notiz: reg?.notiz },
     stammdaten: st ? stammRest : null,
     einwilligungen: einwilligungen.map((e) => ({ art: EINWILLIGUNGEN[e.art]?.titel ?? e.art, erteilt_am: e.erteilt_am, widerrufen_am: e.widerrufen_am, notiz: e.notiz })),
-    dokumente: doks.map((d) => ({ art: d.art === 'sonstiges' ? 'Sonstiges' : EINWILLIGUNGEN[d.art]?.titel ?? d.art, name: d.name, hochgeladen_am: d.erstellt_am })),
+    dokumente: doks.map((d) => ({ art: dokumentArtTitel(d.art), name: d.name, hochgeladen_am: d.erstellt_am })),
     sitzungen,
     honorarnoten: noten.filter((n) => n.akte_id === akteId).map((n) => ({ nummer: n.nummer, datum: n.datum, betrag: n.betrag, status: n.status })),
     aufbewahrung: { status: akte.status, abschluss: akte.abschluss_datum, bis: akte.aufbewahrung_bis },
