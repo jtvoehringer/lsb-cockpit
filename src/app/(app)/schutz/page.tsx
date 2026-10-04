@@ -13,7 +13,7 @@ type AuditZeile = { zeitpunkt: string; ereignis: string; objekt: string | null; 
 const EREIGNIS: Record<string, string> = {
   einrichtung: 'Konto eingerichtet', anmeldung: 'Anmeldung', abmeldung: 'Abmeldung', entsperrt: 'Entsperrt',
   gesperrt: 'Gesperrt', entsperren: 'Entsperren', abmeldung_ueberall: 'Auf allen Geräten abgemeldet',
-  akte_angelegt: 'Akte angelegt', akte_entfernt: 'Leere Akte gelöscht', akte_zugeordnet: 'Akte verknüpft', chiffre_geaendert: 'Chiffre an das Jahr angepasst', protokoll_abgeschlossen: 'Protokoll abgeschlossen', protokoll_korrigiert: 'Protokoll korrigiert',
+  akte_angelegt: 'Akte angelegt', akte_entfernt: 'Leere Akte gelöscht', akte_zugeordnet: 'Akte verknüpft', chiffre_geaendert: 'Chiffre an das Jahr angepasst', protokoll_abgeschlossen: 'Protokoll abgeschlossen', protokoll_korrigiert: 'Protokoll korrigiert', protokolle_gedruckt: 'Protokolle gedruckt',
   register_geoeffnet: 'Register geöffnet', register_geaendert: 'Register geändert', register_gesperrt: 'Register gesperrt',
   uebernahme_prototyp: 'Übernahme aus Prototyp', buchung_angelegt: 'Buchung angelegt', buchung_geaendert: 'Buchung geändert',
   buchung_geloescht: 'Buchung gelöscht', honorarnote_ausgestellt: 'Honorarnote ausgestellt', honorarnote_bezahlt: 'Honorarnote bezahlt',

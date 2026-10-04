@@ -25,7 +25,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   ]
   return (
     <div className="min-h-screen">
-      <header className="nicht-drucken border-b border-border bg-surface">
+      <header className="nicht-drucken sticky top-0 z-40 border-b border-border bg-surface/95 backdrop-blur supports-[backdrop-filter]:bg-surface/85">
         <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3 px-4 py-3">
           <Link href="/" className="flex items-center gap-3 no-underline">
             <img src="/brand/bildmarke.svg" alt="" width={29} height={22} />

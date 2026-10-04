@@ -20,6 +20,7 @@ export default function Protokolle() {
   const [klient, setKlient] = useState<{ vorname: string; nachname: string; notiz: string } | null>(null)
   const [arbeitet, setArbeitet] = useState(false)
   const [fehler, setFehler] = useState('')
+  const [auswahl, setAuswahl] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     const c = new URLSearchParams(location.search).get('chiffre')
@@ -84,12 +85,12 @@ export default function Protokolle() {
       <div className="karte space-y-4">
         <h2 className="font-heading text-heading">Neues Gespräch</h2>
         <div className="flex flex-wrap items-end gap-4">
-          <label>1. Datum des Gesprächs<input type="date" value={neu.datum} min={`${PROTOKOLL_AB_JAHR}-01-01`} max={`${new Date().getFullYear()}-12-31`} onChange={(e) => setNeu({ ...neu, datum: e.target.value })} /></label>
+          <label>Datum des Gesprächs<input type="date" value={neu.datum} min={`${PROTOKOLL_AB_JAHR}-01-01`} max={`${new Date().getFullYear()}-12-31`} onChange={(e) => setNeu({ ...neu, datum: e.target.value })} /></label>
           <label className="flex items-center gap-2 pb-2.5 text-sm font-normal text-text" title="Beratung vor der Gewerbeberechtigung, z. B. als Praxisnachweis für die Ausbildung – bekommt einen Vermerk im Ausdruck und in der Nachweisliste"><input type="checkbox" checked={neu.ausbildung} onChange={(e) => setNeu({ ...neu, ausbildung: e.target.checked })} /> in Ausbildung</label>
         </div>
         <p className="text-xs text-text-subtle">Die Chiffre bekommt immer das Jahr des Erstgesprächs – Datum 2024 ergibt K-24-…. Nachträge sind ab {PROTOKOLL_AB_JAHR} möglich.</p>
         <div className="flex flex-wrap items-end gap-2 border-t border-border pt-4">
-          <button className="btn btn-cta" onClick={erstgespraechStarten} disabled={arbeitet}>2. + Erstgespräch (neue Klient:in)</button>
+          <button className="btn btn-cta" onClick={erstgespraechStarten} disabled={arbeitet}>+ Erstgespräch (neue Klient:in)</button>
           <span className="px-2 pb-2.5 text-sm text-text-subtle">oder</span>
           <label className="min-w-44">Beratungsgespräch zu
             <select value={folgeAkte} onChange={(e) => waehleFolgeAkte(e.target.value)} className="mt-1 block w-full rounded-md border border-border-input bg-surface px-3 py-2.5 text-base">
@@ -97,7 +98,7 @@ export default function Protokolle() {
               {akten.filter((a) => a.status === 'offen').map((a) => <option key={a.id} value={a.id}>{a.chiffre}{(sitzungen ?? []).some((s) => s.akte_id === a.id) ? '' : ' (noch kein Gespräch → Erstgespräch)'}</option>)}
             </select>
           </label>
-          <button className="btn btn-primary" onClick={beratungsgespraech} disabled={arbeitet}>2. + Beratungsgespräch</button>
+          <button className="btn btn-primary" onClick={beratungsgespraech} disabled={arbeitet}>+ Beratungsgespräch</button>
         </div>
       </div>
       {klient && (
@@ -126,16 +127,27 @@ export default function Protokolle() {
         <label>bis<input type="date" value={filter.bis} onChange={(e) => setFilter({ ...filter, bis: e.target.value })} /></label>
       </div>
 
+      <div className="flex flex-wrap items-center gap-2">
+        <button className="btn btn-primary" disabled={!auswahl.size} onClick={() => router.push(`/protokolle/druck?ids=${[...auswahl].join(',')}`)}>Ausgewählte drucken ({auswahl.size})</button>
+        <button className="btn btn-ghost" disabled={!zeilen.length} onClick={() => router.push(`/protokolle/druck?ids=${zeilen.map((z) => z.id).join(',')}`)}>Alle angezeigten drucken ({zeilen.length})</button>
+        {auswahl.size > 0 && <button className="btn btn-ghost" onClick={() => setAuswahl(new Set())}>Auswahl aufheben</button>}
+        <span className="text-xs text-text-subtle">Tipp: oben nach Chiffre oder Zeitraum filtern, dann „Alle angezeigten drucken“.</span>
+      </div>
+
       <div className="karte overflow-x-auto p-0">
         <table className="w-full text-sm">
           <thead><tr className="text-left text-xs uppercase tracking-widest text-text-subtle">
+            <th className="w-10 py-3 pl-4"><input type="checkbox" aria-label="Alle angezeigten auswählen" checked={zeilen.length > 0 && zeilen.every((z) => auswahl.has(z.id))}
+              onChange={(e) => setAuswahl(e.target.checked ? new Set([...auswahl, ...zeilen.map((z) => z.id)]) : new Set([...auswahl].filter((id) => !zeilen.some((z) => z.id === id))))} /></th>
             {['Nr.', 'Datum', 'Chiffre', 'Art', 'Dauer', 'Einheiten', 'Status'].map((h, i) => <th key={h} className={`px-4 py-3 font-medium ${i >= 4 && i <= 5 ? 'text-right' : ''}`}>{h}</th>)}
           </tr></thead>
           <tbody>
             {zeilen.map((s) => {
               const m = minuten(s.beginn, s.ende)
               return (
-                <tr key={s.id} className="border-t border-border hover:bg-background">
+                <tr key={s.id} className={`border-t border-border hover:bg-background ${auswahl.has(s.id) ? 'bg-background' : ''}`}>
+                  <td className="py-3 pl-4"><input type="checkbox" aria-label={`Protokoll Nr. ${s.nr} auswählen`} checked={auswahl.has(s.id)}
+                    onChange={(e) => { const n = new Set(auswahl); if (e.target.checked) n.add(s.id); else n.delete(s.id); setAuswahl(n) }} /></td>
                   <td className="px-4 py-3 tabular-nums"><Link href={`/protokolle/${s.id}`} className="no-underline">{s.nr}</Link></td>
                   <td className="px-4 tabular-nums"><Link href={`/protokolle/${s.id}`} className="no-underline">{datum(s.datum)}</Link></td>
                   <td className="px-4 tabular-nums">{chiffreVon.get(s.akte_id)}{ohneEinwilligung.has(s.akte_id) && <span title="Einwilligung (Art. 9 DSGVO) noch nicht erfasst – im Register unter „Stammdaten“" className="ml-2 whitespace-nowrap rounded-full bg-sand px-2 py-0.5 text-xs">Einwilligung fehlt</span>}</td>
