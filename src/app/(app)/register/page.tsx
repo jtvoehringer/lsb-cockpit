@@ -75,7 +75,7 @@ export default function Register() {
     try {
       await akteZuordnen(tresor.schluessel('zone_c'), q.akte_id, ziel.akte_id)
       await protokolliere('akte_zugeordnet', `${q.chiffre} → ${ziel.chiffre}`)
-      setZuordnen(null); zeigeMeldung(`${q.name || q.chiffre} ist jetzt mit ${ziel.chiffre} verknüpft; ${q.chiffre} wurde entfernt.`); await laden()
+      setZuordnen(null); zeigeMeldung(`${q.chiffre} ist jetzt mit ${ziel.chiffre} verknüpft und wurde entfernt.`); await laden()
     } catch (err) { setFehler((err as Error).message) }
   }
 
