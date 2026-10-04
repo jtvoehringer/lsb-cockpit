@@ -1,13 +1,13 @@
 'use client'
 // Druckvorlagen für Klientinnen und Klienten (R-05, R-16, F-11). Praxisangaben und Fristen aus den Einstellungen.
-// ENTWURF: Texte sind Vorschläge und vor der Verwendung rechtlich zu prüfen (O-03). Nach Freigabe VORLAGEN_FREIGEGEBEN = true.
+// Texte rechtlich geprüft und freigegeben am 04.10.2026 (Doris Dvorak; ROK Akademie). Bei inhaltlichen Änderungen erneut prüfen lassen und VORLAGEN_STAND anpassen.
 import type { PraxisEinstellungen } from '@/lib/einstellungen'
 import { euro } from '@/lib/finanzen/modell'
 import { datum, zahl } from '@/lib/format'
 import type { FristEinstellungen } from '@/lib/fristen'
 
-export const VORLAGEN_FREIGEGEBEN = false
-export const VORLAGEN_STAND = 'Entwurf vom 29.09.2026'
+export const VORLAGEN_FREIGEGEBEN = true
+export const VORLAGEN_STAND = '04.10.2026'
 
 type Basis = { praxis: PraxisEinstellungen; fristen: FristEinstellungen }
 
