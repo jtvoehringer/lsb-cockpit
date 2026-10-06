@@ -8,12 +8,17 @@ import { ART, minuten, pruefeDatum, PROTOKOLL_AB_JAHR } from '@/lib/protokolle/m
 import { protokolliere } from '@/lib/konto'
 import { useTresor } from '@/lib/tresor'
 
+type Spalte = 'nr' | 'datum' | 'chiffre' | 'art' | 'dauer' | 'einheiten' | 'status'
+const SPALTEN: [Spalte, string][] = [['nr', 'Nr.'], ['datum', 'Datum'], ['chiffre', 'Chiffre'], ['art', 'Art'], ['dauer', 'Dauer'], ['einheiten', 'Einheiten'], ['status', 'Status']]
+
 export default function Protokolle() {
   const router = useRouter()
   const tresor = useTresor()
   const [akten, setAkten] = useState<Akte[]>([])
   const [sitzungen, setSitzungen] = useState<Sitzung[] | null>(null)
-  const [filter, setFilter] = useState({ chiffre: '', von: '', bis: '' })
+  const [filter, setFilter] = useState({ chiffre: '', von: '', bis: '', art: '', status: '', ausbildung: '' })
+  // Sortierung per Klick auf die Spaltenköpfe; gedruckt wird in dieser Reihenfolge
+  const [sortierung, setSortierung] = useState<{ spalte: Spalte; auf: boolean }>({ spalte: 'datum', auf: false })
   const [folgeAkte, setFolgeAkte] = useState('')
   const [neu, setNeu] = useState({ datum: heute(), ausbildung: false })
   // Erstgespräch: zuerst Klient:in anlegen (Name nur verschlüsselt im Register)
@@ -32,7 +37,21 @@ export default function Protokolle() {
   const ohneEinwilligung = useMemo(() => new Set(akten.filter((a) => a.status === 'offen' && !a.einwilligung_am).map((a) => a.id)), [akten])
   const zeilen = (sitzungen ?? []).filter((s) =>
     (!filter.chiffre || (chiffreVon.get(s.akte_id) ?? '').toLowerCase().includes(filter.chiffre.toLowerCase())) &&
-    (!filter.von || s.datum >= filter.von) && (!filter.bis || s.datum <= filter.bis))
+    (!filter.von || s.datum >= filter.von) && (!filter.bis || s.datum <= filter.bis) &&
+    (!filter.art || s.art === filter.art) && (!filter.status || s.protokoll_status === filter.status) &&
+    (!filter.ausbildung || s.in_ausbildung === (filter.ausbildung === 'ja')))
+    .sort((x, y) => {
+      const wert = (z: Sitzung): string | number => ({
+        nr: z.nr, datum: z.datum, chiffre: chiffreVon.get(z.akte_id) ?? '', art: z.art,
+        dauer: minuten(z.beginn, z.ende), einheiten: minuten(z.beginn, z.ende), status: z.protokoll_status,
+      })[sortierung.spalte]
+      const a = wert(x), b = wert(y)
+      const v = typeof a === 'number' && typeof b === 'number' ? a - b : String(a).localeCompare(String(b), 'de')
+      return (sortierung.auf ? v : -v) || (sortierung.auf ? x.nr - y.nr : y.nr - x.nr)
+    })
+  const druckZiel = auswahl.size ? zeilen.filter((z) => auswahl.has(z.id)) : zeilen
+  const drucken = (mit: 'protokolle' | 'zusammenfassung' | 'beides') => router.push(`/protokolle/druck?mit=${mit}&ids=${druckZiel.map((z) => z.id).join(',')}`)
+  const sortiere = (spalte: Spalte) => setSortierung((alt) => ({ spalte, auf: alt.spalte === spalte ? !alt.auf : spalte !== 'datum' && spalte !== 'nr' }))
 
   /** Chiffre wählen: Häkchen „in Ausbildung“ vom letzten Protokoll dieser Chiffre übernehmen */
   function waehleFolgeAkte(id: string) {
@@ -125,21 +144,37 @@ export default function Protokolle() {
         <label>Chiffre<input value={filter.chiffre} onChange={(e) => setFilter({ ...filter, chiffre: e.target.value })} placeholder="alle" /></label>
         <label>von<input type="date" value={filter.von} onChange={(e) => setFilter({ ...filter, von: e.target.value })} /></label>
         <label>bis<input type="date" value={filter.bis} onChange={(e) => setFilter({ ...filter, bis: e.target.value })} /></label>
+        <label>Art<select value={filter.art} onChange={(e) => setFilter({ ...filter, art: e.target.value })} className="mt-1 block rounded-md border border-border-input bg-surface px-3 py-2.5 text-base">
+          <option value="">alle</option><option value="erst">Erstgespräch</option><option value="folge">Beratungsgespräch</option>
+        </select></label>
+        <label>Status<select value={filter.status} onChange={(e) => setFilter({ ...filter, status: e.target.value })} className="mt-1 block rounded-md border border-border-input bg-surface px-3 py-2.5 text-base">
+          <option value="">alle</option><option value="abgeschlossen">abgeschlossen</option><option value="entwurf">Entwurf</option>
+        </select></label>
+        <label>Ausbildung<select value={filter.ausbildung} onChange={(e) => setFilter({ ...filter, ausbildung: e.target.value })} className="mt-1 block rounded-md border border-border-input bg-surface px-3 py-2.5 text-base">
+          <option value="">alle</option><option value="ja">in Ausbildung</option><option value="nein">ohne</option>
+        </select></label>
+        {Object.values(filter).some(Boolean) && <button className="btn btn-ghost self-end" onClick={() => setFilter({ chiffre: '', von: '', bis: '', art: '', status: '', ausbildung: '' })}>Filter zurücksetzen</button>}
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        <button className="btn btn-primary" disabled={!auswahl.size} onClick={() => router.push(`/protokolle/druck?ids=${[...auswahl].join(',')}`)}>Ausgewählte drucken ({auswahl.size})</button>
-        <button className="btn btn-ghost" disabled={!zeilen.length} onClick={() => router.push(`/protokolle/druck?ids=${zeilen.map((z) => z.id).join(',')}`)}>Alle angezeigten drucken ({zeilen.length})</button>
+        <span className="text-sm text-text-muted">{auswahl.size ? `${druckZiel.length} ausgewählt` : `${zeilen.length} angezeigt`}:</span>
+        <button className="btn btn-primary" disabled={!druckZiel.length} onClick={() => drucken('protokolle')}>Protokolle drucken</button>
+        <button className="btn btn-ghost" disabled={!druckZiel.length} onClick={() => drucken('zusammenfassung')}>Zusammenfassung</button>
+        <button className="btn btn-ghost" disabled={!druckZiel.length} onClick={() => drucken('beides')}>Zusammenfassung + Protokolle</button>
         {auswahl.size > 0 && <button className="btn btn-ghost" onClick={() => setAuswahl(new Set())}>Auswahl aufheben</button>}
-        <span className="text-xs text-text-subtle">Tipp: oben nach Chiffre oder Zeitraum filtern, dann „Alle angezeigten drucken“.</span>
       </div>
+      <p className="-mt-3 text-xs text-text-subtle">Ohne Häkchen gilt alles, was nach den Filtern angezeigt wird. Gedruckt wird in der Reihenfolge der Liste – Spaltenkopf anklicken zum Sortieren.</p>
 
       <div className="karte overflow-x-auto p-0">
         <table className="w-full text-sm">
           <thead><tr className="text-left text-xs uppercase tracking-widest text-text-subtle">
             <th className="w-10 py-3 pl-4"><input type="checkbox" aria-label="Alle angezeigten auswählen" checked={zeilen.length > 0 && zeilen.every((z) => auswahl.has(z.id))}
               onChange={(e) => setAuswahl(e.target.checked ? new Set([...auswahl, ...zeilen.map((z) => z.id)]) : new Set([...auswahl].filter((id) => !zeilen.some((z) => z.id === id))))} /></th>
-            {['Nr.', 'Datum', 'Chiffre', 'Art', 'Dauer', 'Einheiten', 'Status'].map((h, i) => <th key={h} className={`px-4 py-3 font-medium ${i >= 4 && i <= 5 ? 'text-right' : ''}`}>{h}</th>)}
+            {SPALTEN.map(([k, h], i) => (
+              <th key={k} className={`px-4 py-3 font-medium ${i >= 4 && i <= 5 ? 'text-right' : ''}`} aria-sort={sortierung.spalte === k ? (sortierung.auf ? 'ascending' : 'descending') : 'none'}>
+                <button type="button" className="uppercase tracking-widest hover:text-heading" onClick={() => sortiere(k)}>{h}{sortierung.spalte === k ? (sortierung.auf ? ' ▲' : ' ▼') : ''}</button>
+              </th>
+            ))}
           </tr></thead>
           <tbody>
             {zeilen.map((s) => {
