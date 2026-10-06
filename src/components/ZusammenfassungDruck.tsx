@@ -2,14 +2,13 @@ import brand from '@/config/brand.config'
 import type { ProtokollAusdruck } from '@/lib/einstellungen'
 import { datum, heute, stunden, zahl } from '@/lib/format'
 import type { Sitzung } from '@/lib/protokolle/daten'
-import { ART, einheiten, minuten, type Inhalt } from '@/lib/protokolle/modell'
+import { einheiten, minuten, type Inhalt } from '@/lib/protokolle/modell'
 
 export type ZusammenfassungZeile = { s: Sitzung; chiffre: string; inhalt: Inhalt }
 
-/** Thema für die Übersicht: erste Zeilen aus „Anliegen / Thema“, gekürzt */
-export function thema(inhalt: Inhalt, max = 140): string {
-  const t = (inhalt.felder.anliegen ?? '').replace(/\s+/g, ' ').trim()
-  return t.length > max ? `${t.slice(0, max - 1).trimEnd()} …` : t
+/** Thema für die Übersicht: Text aus „Anliegen / Thema“ (vollständig, Zeilenumbrüche zusammengefasst) */
+export function thema(inhalt: Inhalt): string {
+  return (inhalt.felder.anliegen ?? '').replace(/\s+/g, ' ').trim()
 }
 
 /** Zusammenfassungsseite: je Protokoll Chiffre, Vor-/Nachbereitung, Beratungszeit, Thema – mit Summen. */
@@ -27,9 +26,13 @@ export function ZusammenfassungDruck({ zeilen, ausdruck }: { zeilen: Zusammenfas
         ? <div className="mt-2 text-sm"><p><b>LSB in Ausbildung:</b> {ausdruck.beraterin}</p>{ausdruck.institut && <p>Ausbildungsinstitut: {ausdruck.institut}</p>}</div>
         : <p className="mt-2 text-sm"><b>Lebens- und Sozialberaterin:</b> {ausdruck.beraterin}</p>)}
       <p className="mt-1 text-xs text-text-muted">{zeilen.length} Protokolle · Zeitraum {daten.length ? `${datum(daten[0])} – ${datum(daten[daten.length - 1])}` : '–'} · Zeiten in Stunden · Einheit = 50 Minuten · nur Chiffren, keine Namen</p>
-      <table className="druck-tabelle mt-3 w-full text-xs">
+      <table className="druck-tabelle mt-3 w-full table-fixed text-xs">
+        <colgroup>
+          <col style={{ width: '4.5%' }} /><col style={{ width: '11%' }} /><col style={{ width: '14.5%' }} /><col style={{ width: '10%' }} />
+          <col style={{ width: '6%' }} /><col style={{ width: '9%' }} /><col style={{ width: '7.5%' }} /><col style={{ width: '6%' }} /><col />
+        </colgroup>
         <thead>
-          <tr><th>Nr.</th><th>Datum</th><th>Chiffre</th><th>Art</th><th>Vorb.</th><th>Beratung</th><th>Nachb.</th><th>Einh.</th><th>Thema</th></tr>
+          <tr><th className="whitespace-nowrap">Nr.</th><th>Datum</th><th>Chiffre</th><th>Art</th><th className="text-right">Vorb.</th><th className="text-right">Beratung</th><th className="text-right">Nachb.</th><th className="text-right">Einh.</th><th>Thema</th></tr>
         </thead>
         <tbody>
           {zeilen.map(({ s, chiffre, inhalt }) => {
@@ -37,14 +40,14 @@ export function ZusammenfassungDruck({ zeilen, ausdruck }: { zeilen: Zusammenfas
             return (
               <tr key={s.id} className="break-inside-avoid">
                 <td>{s.nr}</td><td className="whitespace-nowrap">{datum(s.datum)}</td><td className="whitespace-nowrap">{chiffre}</td>
-                <td>{ART[s.art].kurz}{s.in_ausbildung && !alleAusbildung ? ' (A)' : ''}</td>
-                <td>{stunden(s.vorbereitung_min)}</td><td>{m ? stunden(m) : '–'}</td><td>{stunden(s.nachbereitung_min)}</td><td>{m ? zahl(einheiten(m)) : '–'}</td>
+                <td>{s.art === 'erst' ? 'Erstgespr.' : 'Beratung'}{s.in_ausbildung && !alleAusbildung ? ' (A)' : ''}</td>
+                <td className="text-right">{stunden(s.vorbereitung_min)}</td><td className="text-right">{m ? stunden(m) : '–'}</td><td className="text-right">{stunden(s.nachbereitung_min)}</td><td className="text-right">{m ? zahl(einheiten(m)) : '–'}</td>
                 <td>{thema(inhalt) || '–'}</td>
               </tr>
             )
           })}
           <tr className="font-semibold">
-            <td colSpan={4}>Summe</td><td>{stunden(vor)}</td><td>{stunden(beratung)}</td><td>{stunden(nach)}</td><td>{zahl(einheiten(beratung))}</td>
+            <td colSpan={4}>Summe</td><td className="text-right">{stunden(vor)}</td><td className="text-right">{stunden(beratung)}</td><td className="text-right">{stunden(nach)}</td><td className="text-right">{zahl(einheiten(beratung))}</td>
             <td>gesamt {stunden(vor + beratung + nach)} h</td>
           </tr>
         </tbody>

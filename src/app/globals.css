@@ -42,12 +42,17 @@
   @page { size: A4; margin: 0; }
   .nicht-drucken { display: none !important; }
   .nur-druck { display: block; }
-  body { background: #fff; font-size: 10.5pt; }
+  .nur-druck.flex { display: flex; }
+  /* Kein beiger App-Hintergrund auf dem Papier, auch wenn „Hintergrundgrafiken“ aktiv ist */
+  html, body { background: #fff !important; }
+  body { font-size: 10.5pt; }
   main { padding: 16mm 18mm !important; max-width: none !important; box-decoration-break: clone; -webkit-box-decoration-break: clone; }
   /* Karten und Tabellen: nichts abschneiden, kompakt, ohne Schatten */
   .karte { box-shadow: none !important; border: 1px solid #D6D0C4; padding: 8px 10px !important; overflow: visible !important; }
   table { font-size: 8.5pt !important; width: 100% !important; }
-  th, td { padding: 3px 6px !important; white-space: nowrap; }
+  /* Text darf umbrechen (sonst läuft er über den Seitenrand hinaus); Zahlen, Daten und Chiffren bleiben einzeilig */
+  th, td { padding: 3px 6px !important; white-space: normal; overflow-wrap: break-word; }
+  td.tabular-nums, th.text-right, td.text-right, .whitespace-nowrap { white-space: nowrap; }
   thead th { letter-spacing: .04em !important; }
   tr { break-inside: avoid; }
   .druck-summen { display: grid !important; grid-template-columns: repeat(4, 1fr) !important; gap: 6px !important; }

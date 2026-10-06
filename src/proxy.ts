@@ -2,7 +2,7 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
 // Seiten ohne Anmeldung. Alles andere verlangt eine Supabase-Sitzung; die Daten selbst schützt zusätzlich RLS (AAL2) und die Verschlüsselung.
-const OEFFENTLICH = ['/anmelden', '/einrichten', '/installieren']
+const OEFFENTLICH = ['/anmelden', '/einrichten', '/installieren', ...(process.env.NODE_ENV === 'development' ? ['/druckvorschau'] : [])]
 
 function csp(nonce: string) {
   const supabase = process.env.NEXT_PUBLIC_SUPABASE_URL!

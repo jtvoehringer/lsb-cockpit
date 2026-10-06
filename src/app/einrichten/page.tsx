@@ -1,6 +1,7 @@
 'use client'
 import { useRouter } from 'next/navigation'
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { Notfallblatt } from '@/components/Notfallblatt'
 import { passkeyName } from '@/components/Bestaetigung'
 import { SchmalerRahmen } from '@/components/Rahmen'
 import brand from '@/config/brand.config'
@@ -187,13 +188,7 @@ export default function Einrichten() {
 
       {schritt === 'notfall' && (
         <div className="space-y-5">
-          <div className="karte" id="notfallblatt">
-            <p className="overline">Notfallblatt · {brand.appName}</p>
-            <p className="mt-3 text-sm">Wiederherstellungscode für <b>{email}</b>:</p>
-            <p className="code mt-2 break-all text-heading">{formatiereCode(notfallcode)}</p>
-            <p className="mt-4 text-sm text-text-muted">Adresse: {typeof location !== 'undefined' ? location.origin : ''} · Erstellt am {new Date().toLocaleDateString('de-AT')}</p>
-            <p className="mt-2 text-sm text-text-muted">Mit diesem Code lässt sich das Cockpit auf einem neuen Gerät entsperren, wenn kein eingerichtetes Gerät mehr da ist. Ausdrucken, nicht digital speichern, versiegelt bei der Vertrauensperson oder im Safe verwahren.</p>
-          </div>
+          <Notfallblatt email={email} code={formatiereCode(notfallcode)} adresse={typeof location !== 'undefined' ? location.origin : ''} />
           <button type="button" className="btn btn-ghost nicht-drucken w-full" onClick={() => print()}>Notfallblatt drucken</button>
           <label className="nicht-drucken flex items-start gap-3 text-sm font-normal text-text"><input type="checkbox" checked={verwahrt} onChange={(e) => setVerwahrt(e.target.checked)} className="mt-0.5" /> Notfallblatt ist ausgedruckt und wird sicher verwahrt. Der Code wird nicht noch einmal angezeigt.</label>
           <Fehler text={fehler} />

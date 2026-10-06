@@ -43,29 +43,29 @@ export function Datenschutzinformation({ praxis, fristen }: Basis) {
     <article className="text-[10.5pt] leading-relaxed">
       <Briefkopf praxis={praxis} titel="Information zum Datenschutz" />
       <p>Mit dieser Information erfahren Sie, welche Daten ich im Rahmen der Lebens- und Sozialberatung verarbeite, wofür und wie lange – und welche Rechte Sie haben (Art. 13 DSGVO).</p>
-      <H>1. Verantwortliche</H>
-      <p>{verantwortlich || 'Name, Anschrift und Kontakt der Praxis (unter „Einstellungen“ eintragen)'}</p>
-      <H>2. Welche Daten</H>
-      <p>Kontaktdaten (Name, Adresse, Telefon, E-Mail), Geburtsjahr, bei Minderjährigen die Erziehungsberechtigten; Termine und Dauer der Beratung; die Inhalte der Beratungsgespräche in Form von Protokollen – diese können Angaben zu Ihrer Gesundheit und anderen besonders geschützten Lebensbereichen enthalten (Art. 9 DSGVO); Rechnungsdaten.</p>
-      <H>3. Zwecke und Rechtsgrundlagen</H>
+      <section className="break-inside-avoid"><H>1. Verantwortliche</H>
+      <p>{verantwortlich || 'Name, Anschrift und Kontakt der Praxis (unter „Einstellungen“ eintragen)'}</p></section>
+      <section className="break-inside-avoid"><H>2. Welche Daten</H>
+      <p>Kontaktdaten (Name, Adresse, Telefon, E-Mail), Geburtsjahr, bei Minderjährigen die Erziehungsberechtigten; Termine und Dauer der Beratung; die Inhalte der Beratungsgespräche in Form von Protokollen – diese können Angaben zu Ihrer Gesundheit und anderen besonders geschützten Lebensbereichen enthalten (Art. 9 DSGVO); Rechnungsdaten.</p></section>
+      <section className="break-inside-avoid"><H>3. Zwecke und Rechtsgrundlagen</H>
       <ul className="list-disc pl-5">
         <li>Durchführung der vereinbarten Beratung (Art. 6 Abs. 1 lit. b DSGVO).</li>
         <li>Dokumentation der Beratung einschließlich Gesundheitsdaten – nur mit Ihrer ausdrücklichen Einwilligung (Art. 9 Abs. 2 lit. a DSGVO).</li>
         <li>Abrechnung und gesetzliche Aufbewahrung von Rechnungen (Art. 6 Abs. 1 lit. c DSGVO in Verbindung mit § 132 BAO).</li>
         <li>Kommunikation per E-Mail nur, wenn Sie dem zustimmen.</li>
-      </ul>
-      <H>4. Verschwiegenheit und Schutz</H>
-      <p>Ich unterliege der beruflichen Verschwiegenheit. Meine Aufzeichnungen werden auf meinem Gerät verschlüsselt, bevor sie gespeichert werden. Die eingesetzten Dienstleister können die Inhalte nicht lesen. Protokolle enthalten statt Ihres Namens eine Kennung (Chiffre).</p>
-      <H>5. Empfänger</H>
-      <p>Ihre Daten gebe ich nicht an Dritte weiter, außer Sie willigen ein oder ich bin gesetzlich dazu verpflichtet. Für den technischen Betrieb setze ich Auftragsverarbeiter ein, die ausschließlich verschlüsselte Inhalte erhalten: ICP Solutions (IC&amp;P Consultants e.U., IT-Betreuung), Supabase Inc. (Datenspeicherung in Frankfurt am Main), Vercel Inc. (Bereitstellung der Anwendung). Für E-Mail und Termine nutze ich Microsoft 365. Rechnungsdaten erhält meine Steuerberatung.</p>
-      <H>6. Übermittlung in Drittländer</H>
-      <p>Supabase, Vercel und Microsoft sind Unternehmen mit Sitz bzw. Muttergesellschaft in den USA. Die Daten werden in der EU gespeichert; ein Zugriff aus den USA ist dennoch nicht ausgeschlossen. Grundlage sind das EU-US Data Privacy Framework bzw. EU-Standardvertragsklauseln. Beratungsinhalte liegen dort nur verschlüsselt vor.</p>
-      <H>7. Speicherdauer</H>
-      <p>Die Beratungsdokumentation bewahre ich {fristen.standard_jahre} Jahre nach Abschluss der Beratung auf, mit Ihrer Zustimmung {fristen.zustimmung_jahre} Jahre{fristen.minderjaehrige_ab_volljaehrigkeit ? '; bei Minderjährigen beginnt die Frist mit Erreichen der Volljährigkeit' : ''}. Rechnungen werden 7 Jahre aufbewahrt. Danach werden die Daten gelöscht.</p>
-      <H>8. Ihre Rechte</H>
-      <p>Sie haben das Recht auf Auskunft, Berichtigung, Löschung, Einschränkung der Verarbeitung, Datenübertragbarkeit und Widerspruch. Eine Einwilligung können Sie jederzeit mit Wirkung für die Zukunft widerrufen. Sie können sich bei der Datenschutzbehörde beschweren (Barichgasse 40–42, 1030 Wien, dsb@dsb.gv.at, www.dsb.gv.at).</p>
-      <H>9. Pflicht zur Bereitstellung</H>
-      <p>Ohne die Einwilligung zur Dokumentation (Punkt 3) kann ich die Beratung nicht dokumentieren. Bitte sprechen Sie mich in diesem Fall an. Eine automatisierte Entscheidungsfindung findet nicht statt.</p>
+      </ul></section>
+      <section className="break-inside-avoid"><H>4. Verschwiegenheit und Schutz</H>
+      <p>Ich unterliege der beruflichen Verschwiegenheit. Meine Aufzeichnungen werden auf meinem Gerät verschlüsselt, bevor sie gespeichert werden. Die eingesetzten Dienstleister können die Inhalte nicht lesen. Protokolle enthalten statt Ihres Namens eine Kennung (Chiffre).</p></section>
+      <section className="break-inside-avoid"><H>5. Empfänger</H>
+      <p>Ihre Daten gebe ich nicht an Dritte weiter, außer Sie willigen ein oder ich bin gesetzlich dazu verpflichtet. Für den technischen Betrieb setze ich Auftragsverarbeiter ein, die ausschließlich verschlüsselte Inhalte erhalten: ICP Solutions (IC&amp;P Consultants e.U., IT-Betreuung), Supabase Inc. (Datenspeicherung in Frankfurt am Main), Vercel Inc. (Bereitstellung der Anwendung). Für E-Mail und Termine nutze ich Microsoft 365. Rechnungsdaten erhält meine Steuerberatung.</p></section>
+      <section className="break-inside-avoid"><H>6. Übermittlung in Drittländer</H>
+      <p>Supabase, Vercel und Microsoft sind Unternehmen mit Sitz bzw. Muttergesellschaft in den USA. Die Daten werden in der EU gespeichert; ein Zugriff aus den USA ist dennoch nicht ausgeschlossen. Grundlage sind das EU-US Data Privacy Framework bzw. EU-Standardvertragsklauseln. Beratungsinhalte liegen dort nur verschlüsselt vor.</p></section>
+      <section className="break-inside-avoid"><H>7. Speicherdauer</H>
+      <p>Die Beratungsdokumentation bewahre ich {fristen.standard_jahre} Jahre nach Abschluss der Beratung auf, mit Ihrer Zustimmung {fristen.zustimmung_jahre} Jahre{fristen.minderjaehrige_ab_volljaehrigkeit ? '; bei Minderjährigen beginnt die Frist mit Erreichen der Volljährigkeit' : ''}. Rechnungen werden 7 Jahre aufbewahrt. Danach werden die Daten gelöscht.</p></section>
+      <section className="break-inside-avoid"><H>8. Ihre Rechte</H>
+      <p>Sie haben das Recht auf Auskunft, Berichtigung, Löschung, Einschränkung der Verarbeitung, Datenübertragbarkeit und Widerspruch. Eine Einwilligung können Sie jederzeit mit Wirkung für die Zukunft widerrufen. Sie können sich bei der Datenschutzbehörde beschweren (Barichgasse 40–42, 1030 Wien, dsb@dsb.gv.at, www.dsb.gv.at).</p></section>
+      <section className="break-inside-avoid"><H>9. Pflicht zur Bereitstellung</H>
+      <p>Ohne die Einwilligung zur Dokumentation (Punkt 3) kann ich die Beratung nicht dokumentieren. Bitte sprechen Sie mich in diesem Fall an. Eine automatisierte Entscheidungsfindung findet nicht statt.</p></section>
       <Fuss />
     </article>
   )
@@ -78,14 +78,15 @@ export function Beratungsvereinbarung({ praxis, fristen }: Basis) {
       <p>zwischen <b>{praxis.name || 'Name der Praxis'}</b> (Beraterin) und</p>
       <Linie text="Name der Klientin / des Klienten" />
       <Linie text="Anschrift" />
-      <H>1. Gegenstand</H>
-      <p>Lebens- und Sozialberatung: Beratung und Begleitung von Menschen in Problem- und Entscheidungssituationen. Die Beratung ist keine Psychotherapie und keine medizinische Behandlung und ersetzt diese nicht.</p>
-      <H>2. Termine und Honorar</H>
-      <p>Eine Beratungseinheit dauert 50 Minuten. Das Honorar beträgt {praxis.honorarsatz ? euro(praxis.honorarsatz) : '€ ____'} je Einheit{praxis.hinweis?.includes('Kleinunternehmer') ? ' (umsatzsteuerfrei, Kleinunternehmerregelung)' : ''} und ist bar oder binnen {praxis.zahlungsziel_tage || 14} Tagen nach Erhalt der Honorarnote zu bezahlen. Termine, die nicht spätestens 24 Stunden vorher abgesagt werden, können verrechnet werden.</p>
-      <H>3. Verschwiegenheit</H>
-      <p>Die Beraterin ist zur Verschwiegenheit über alles verpflichtet, was ihr in der Beratung anvertraut wird. Ausnahmen bestehen nur bei gesetzlichen Pflichten oder wenn das Leben oder die Gesundheit einer Person ernsthaft gefährdet ist.</p>
-      <H>4. Datenschutz</H>
-      <p>Die Information zum Datenschutz habe ich erhalten.</p>
+      <section className="break-inside-avoid"><H>1. Gegenstand</H>
+      <p>Lebens- und Sozialberatung: Beratung und Begleitung von Menschen in Problem- und Entscheidungssituationen. Die Beratung ist keine Psychotherapie und keine medizinische Behandlung und ersetzt diese nicht.</p></section>
+      <section className="break-inside-avoid"><H>2. Termine und Honorar</H>
+      <p>Eine Beratungseinheit dauert 50 Minuten. Das Honorar beträgt {praxis.honorarsatz ? euro(praxis.honorarsatz) : '€ ____'} je Einheit{praxis.hinweis?.includes('Kleinunternehmer') ? ' (umsatzsteuerfrei, Kleinunternehmerregelung)' : ''} und ist bar oder binnen {praxis.zahlungsziel_tage || 14} Tagen nach Erhalt der Honorarnote zu bezahlen. Termine, die nicht spätestens 24 Stunden vorher abgesagt werden, können verrechnet werden.</p></section>
+      <section className="break-inside-avoid"><H>3. Verschwiegenheit</H>
+      <p>Die Beraterin ist zur Verschwiegenheit über alles verpflichtet, was ihr in der Beratung anvertraut wird. Ausnahmen bestehen nur bei gesetzlichen Pflichten oder wenn das Leben oder die Gesundheit einer Person ernsthaft gefährdet ist.</p></section>
+      <section className="break-inside-avoid"><H>4. Datenschutz</H>
+      <p>Die Information zum Datenschutz habe ich erhalten.</p></section>
+      <div className="break-inside-avoid">
       <H>5. Einwilligungen (bitte gesondert ankreuzen)</H>
       <Kasten><b>Dokumentation (erforderlich):</b> Ich willige ausdrücklich ein, dass Angaben zu meiner Gesundheit und zu anderen besonders geschützten Lebensbereichen, die ich in der Beratung mitteile, zum Zweck der Beratung und ihrer Dokumentation verarbeitet werden (Art. 9 Abs. 2 lit. a DSGVO).</Kasten>
       <Kasten><b>E-Mail:</b> Ich bin einverstanden, dass die Beraterin mich zu Terminen und organisatorischen Fragen per unverschlüsselter E-Mail kontaktiert: ________________________________</Kasten>
@@ -95,6 +96,7 @@ export function Beratungsvereinbarung({ praxis, fristen }: Basis) {
         <Linie text="Ort, Datum" /><div />
         <Linie text="Unterschrift Klientin / Klient" /><Linie text="Unterschrift Beraterin" />
         <Linie text="bei Minderjährigen: Unterschrift Erziehungsberechtigte" /><div />
+      </div>
       </div>
       <Fuss />
     </article>
