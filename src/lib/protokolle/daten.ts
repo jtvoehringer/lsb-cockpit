@@ -176,6 +176,26 @@ export async function ladeInhalt(kB: CryptoKey, s: Sitzung): Promise<{ inhalt: I
   return { inhalt: letzte ? await entschluesseleVersion(kB, letzte) : { felder: {}, supervision: false }, versionen }
 }
 
+/** Für die Suche: aktueller Inhalt aller Protokolle (Entwurf oder jüngste Version) – eine Abfrage, Entschlüsselung im Browser */
+export async function ladeAlleInhalte(kB: CryptoKey, sitzungen: Sitzung[], fortschritt?: (n: number) => void): Promise<Map<string, Inhalt>> {
+  const letzte = new Map<string, Version>()
+  // seitenweise (Supabase liefert höchstens 1000 Zeilen je Abfrage)
+  for (let ab = 0; ; ab += 1000) {
+    const { data, error } = await sb().from('protokoll_version').select('id, sitzung_id, version, inhalt_enc, erstellt_am').order('version').order('id').range(ab, ab + 999)
+    if (error) throw error
+    for (const v of (data ?? []) as (Version & { sitzung_id: string })[]) letzte.set(v.sitzung_id, v)
+    if ((data ?? []).length < 1000) break
+  }
+  const out = new Map<string, Inhalt>()
+  for (const s of sitzungen) {
+    const v = letzte.get(s.id)
+    if (s.protokoll_status === 'entwurf' && s.entwurf_enc) out.set(s.id, JSON.parse(await entschluessele(kB, s.entwurf_enc, aad('sitzung', s.id, 'entwurf'))))
+    else if (v) out.set(s.id, await entschluesseleVersion(kB, v))
+    fortschritt?.(out.size)
+  }
+  return out
+}
+
 /** Neue Version anhängen (Abschließen oder Korrektur). Vorhandene Versionen bleiben unverändert. */
 export async function versionAnhaengen(kB: CryptoKey, s: Sitzung, kopf: Kopf, inhalt: Inhalt, zeiten: { erstellt_am?: string; abgeschlossen_am?: string } = {}) {
   const { erstellt_am } = zeiten

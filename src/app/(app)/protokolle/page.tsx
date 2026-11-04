@@ -1,10 +1,11 @@
 'use client'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useEffect, useMemo, useState } from 'react'
+import { Fragment, useEffect, useMemo, useState } from 'react'
 import { datum, heute, stunden, zahl } from '@/lib/format'
-import { chiffreAnJahrAnpassen, ladeAkten, ladeSitzungen, neueAkte, neueSitzung, vollerName, type Akte, type Sitzung } from '@/lib/protokolle/daten'
-import { ART, minuten, pruefeDatum, PROTOKOLL_AB_JAHR } from '@/lib/protokolle/modell'
+import { chiffreAnJahrAnpassen, ladeAkten, ladeAlleInhalte, ladeRegister, ladeSitzungen, neueAkte, neueSitzung, vollerName, type Akte, type Sitzung } from '@/lib/protokolle/daten'
+import { ART, minuten, pruefeDatum, PROTOKOLL_AB_JAHR, type Inhalt } from '@/lib/protokolle/modell'
+import { ausschnitt, begriffe, trifft } from '@/lib/protokolle/suche'
 import { protokolliere } from '@/lib/konto'
 import { useTresor } from '@/lib/tresor'
 
@@ -26,6 +27,24 @@ export default function Protokolle() {
   const [arbeitet, setArbeitet] = useState(false)
   const [fehler, setFehler] = useState('')
   const [auswahl, setAuswahl] = useState<Set<string>>(new Set())
+  // Suche: Protokolltexte und Namen werden erst bei der ersten Suche entschlüsselt und nur im Arbeitsspeicher gehalten
+  const [suche, setSuche] = useState('')
+  const [inhalte, setInhalte] = useState<Map<string, Inhalt> | null>(null)
+  const [namen, setNamen] = useState<Map<string, string>>(new Map())
+  const [suchLaden, setSuchLaden] = useState('')
+  const sb = useMemo(() => begriffe(suche), [suche])
+
+  useEffect(() => {
+    if (!sb.length || inhalte || suchLaden || !sitzungen) return
+    setSuchLaden('Protokolle werden für die Suche entschlüsselt …')
+    Promise.all([
+      ladeAlleInhalte(tresor.schluessel('zone_b'), sitzungen, (n) => setSuchLaden(`Protokolle werden für die Suche entschlüsselt … ${n} von ${sitzungen.length}`)),
+      ladeRegister(tresor.schluessel('zone_c')).catch(() => []),
+    ]).then(([i, r]) => {
+      setNamen(new Map(r.map((e) => [e.akte_id, [e.vorname, e.nachname, e.name, e.notiz].filter(Boolean).join(' ')])))
+      setInhalte(i); setSuchLaden('')
+    }).catch((e) => { setFehler((e as Error).message); setSuchLaden('') })
+  }, [sb, inhalte, suchLaden, sitzungen, tresor])
 
   useEffect(() => {
     const c = new URLSearchParams(location.search).get('chiffre')
@@ -39,7 +58,8 @@ export default function Protokolle() {
     (!filter.chiffre || (chiffreVon.get(s.akte_id) ?? '').toLowerCase().includes(filter.chiffre.toLowerCase())) &&
     (!filter.von || s.datum >= filter.von) && (!filter.bis || s.datum <= filter.bis) &&
     (!filter.art || s.art === filter.art) && (!filter.status || s.protokoll_status === filter.status) &&
-    (!filter.ausbildung || s.in_ausbildung === (filter.ausbildung === 'ja')))
+    (!filter.ausbildung || s.in_ausbildung === (filter.ausbildung === 'ja')) &&
+    (!sb.length || !inhalte || trifft(suchText(s), sb)))
     .sort((x, y) => {
       const wert = (z: Sitzung): string | number => ({
         nr: z.nr, datum: z.datum, chiffre: chiffreVon.get(z.akte_id) ?? '', art: z.art,
@@ -49,6 +69,20 @@ export default function Protokolle() {
       const v = typeof a === 'number' && typeof b === 'number' ? a - b : String(a).localeCompare(String(b), 'de')
       return (sortierung.auf ? v : -v) || (sortierung.auf ? x.nr - y.nr : y.nr - x.nr)
     })
+  function suchText(s: Sitzung): string {
+    const felder = Object.values(inhalte?.get(s.id)?.felder ?? {}).join(' ')
+    return [chiffreVon.get(s.akte_id), datum(s.datum), ART[s.art].kurz, namen.get(s.akte_id), felder].filter(Boolean).join(' ')
+  }
+  /** Fundstelle im Protokolltext (Name aus dem Register wird nicht angezeigt) */
+  function fundstelle(s: Sitzung): { feld: string; teile: [string, string, string] } | 'register' | null {
+    if (!sb.length || !inhalte) return null
+    const inh = inhalte.get(s.id)
+    for (const [k, titel] of ART[s.art].felder) {
+      const t = inh?.felder[k]; if (!t) continue
+      const a = ausschnitt(t, sb); if (a) return { feld: titel, teile: a }
+    }
+    return trifft(namen.get(s.akte_id) ?? '', sb) ? 'register' : null
+  }
   const druckZiel = auswahl.size ? zeilen.filter((z) => auswahl.has(z.id)) : zeilen
   const drucken = (mit: 'protokolle' | 'zusammenfassung' | 'beides') => router.push(`/protokolle/druck?mit=${mit}&ids=${druckZiel.map((z) => z.id).join(',')}`)
   const sortiere = (spalte: Spalte) => setSortierung((alt) => ({ spalte, auf: alt.spalte === spalte ? !alt.auf : spalte !== 'datum' && spalte !== 'nr' }))
@@ -140,6 +174,15 @@ export default function Protokolle() {
       {fehler && <p className="fehler" role="alert">{fehler}</p>}
       {ohneEinwilligung.size > 0 && <p className="hinweis text-sm">Bei {ohneEinwilligung.size} offenen Akte{ohneEinwilligung.size === 1 ? '' : 'n'} ist noch keine Einwilligung zur Verarbeitung der Gesundheitsdaten erfasst. Nachtragen im <Link href="/register">Register</Link> unter „Stammdaten“.</p>}
 
+      <div className="karte space-y-2 p-4">
+        <label className="text-sm">Suche in Protokollen
+          <input type="search" value={suche} onChange={(e) => setSuche(e.target.value)} placeholder="Stichwort, Chiffre, Datum oder Name – mehrere Wörter = alle müssen vorkommen" autoComplete="off" spellCheck={false} />
+        </label>
+        <p className="text-xs text-text-subtle">{suchLaden || (sb.length && inhalte
+          ? `${zeilen.length} Treffer. Durchsucht werden Protokolltext, Chiffre, Datum und der Name im Register. „In Anführungszeichen“ sucht einen genauen Ausdruck.`
+          : 'Die Suche läuft nur hier im Browser – die Protokolle werden dafür entschlüsselt, nichts geht an den Server.')}</p>
+      </div>
+
       <div className="flex flex-wrap gap-3">
         <label>Chiffre<input value={filter.chiffre} onChange={(e) => setFilter({ ...filter, chiffre: e.target.value })} placeholder="alle" /></label>
         <label>von<input type="date" value={filter.von} onChange={(e) => setFilter({ ...filter, von: e.target.value })} /></label>
@@ -153,7 +196,7 @@ export default function Protokolle() {
         <label>Ausbildung<select value={filter.ausbildung} onChange={(e) => setFilter({ ...filter, ausbildung: e.target.value })} className="mt-1 block rounded-md border border-border-input bg-surface px-3 py-2.5 text-base">
           <option value="">alle</option><option value="ja">in Ausbildung</option><option value="nein">ohne</option>
         </select></label>
-        {Object.values(filter).some(Boolean) && <button className="btn btn-ghost self-end" onClick={() => setFilter({ chiffre: '', von: '', bis: '', art: '', status: '', ausbildung: '' })}>Filter zurücksetzen</button>}
+        {(Object.values(filter).some(Boolean) || suche) && <button className="btn btn-ghost self-end" onClick={() => { setFilter({ chiffre: '', von: '', bis: '', art: '', status: '', ausbildung: '' }); setSuche('') }}>Filter zurücksetzen</button>}
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
@@ -179,8 +222,10 @@ export default function Protokolle() {
           <tbody>
             {zeilen.map((s) => {
               const m = minuten(s.beginn, s.ende)
+              const fund = fundstelle(s)
               return (
-                <tr key={s.id} className={`border-t border-border hover:bg-background ${auswahl.has(s.id) ? 'bg-background' : ''}`}>
+                <Fragment key={s.id}>
+                <tr className={`border-t border-border hover:bg-background ${auswahl.has(s.id) ? 'bg-background' : ''}`}>
                   <td className="py-3 pl-4"><input type="checkbox" aria-label={`Protokoll Nr. ${s.nr} auswählen`} checked={auswahl.has(s.id)}
                     onChange={(e) => { const n = new Set(auswahl); if (e.target.checked) n.add(s.id); else n.delete(s.id); setAuswahl(n) }} /></td>
                   <td className="px-4 py-3 tabular-nums"><Link href={`/protokolle/${s.id}`} className="no-underline">{s.nr}</Link></td>
@@ -193,6 +238,16 @@ export default function Protokolle() {
                     ? <span className="rounded-full bg-sage/30 px-2 py-0.5 text-xs text-forest-deep">abgeschlossen</span>
                     : <span className="rounded-full bg-sand px-2 py-0.5 text-xs">Entwurf</span>}</td>
                 </tr>
+                {fund && (
+                  <tr className={auswahl.has(s.id) ? 'bg-background' : ''}>
+                    <td />
+                    <td colSpan={SPALTEN.length} className="px-4 pb-3 text-xs text-text-muted">
+                      {fund === 'register' ? 'Treffer beim Namen im Register'
+                        : <><span className="text-text-subtle">{fund.feld}: </span>{fund.teile[0]}<mark className="rounded bg-sand px-0.5 text-text">{fund.teile[1]}</mark>{fund.teile[2]}</>}
+                    </td>
+                  </tr>
+                )}
+                </Fragment>
               )
             })}
           </tbody>
