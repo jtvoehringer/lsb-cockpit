@@ -9,8 +9,8 @@ import { datum, heute } from '@/lib/format'
 import { akteZuordnen, leereAkteEntfernen } from '@/lib/akten'
 import { protokolliere } from '@/lib/konto'
 import { zeigeMeldung } from '@/lib/meldung'
-import { aktualisiereRegister, ladeAkten, ladeRegister, ladeSitzungen, neueAkte, neueSitzung, registerNamenMigrieren, vollerName, type Akte, type RegisterInhalt } from '@/lib/protokolle/daten'
-import { pruefeDatum, PROTOKOLL_AB_JAHR } from '@/lib/protokolle/modell'
+import { aktualisiereRegister, ladeAkten, ladeRegister, ladeSitzungen, neueAkte, neueSitzung, registerNamenMigrieren, vollerName, type Akte, type RegisterInhalt, type Sitzung } from '@/lib/protokolle/daten'
+import { einordnung, einordnungsHinweis, pruefeDatum, PROTOKOLL_AB_JAHR } from '@/lib/protokolle/modell'
 import { useTresor } from '@/lib/tresor'
 
 // Register (Zone C): Chiffre ↔ Person, verschlüsselt mit K_C. Seit 02.10.2026 ohne zusätzliche Bestätigung (Wunsch der Beraterin:
@@ -32,6 +32,7 @@ export default function Register() {
   const [zuordnen, setZuordnen] = useState<{ quelle: Zeile; ziel: string } | null>(null)
   const LEER_NEU = { vorname: '', nachname: '', notiz: '', datum: heute(), ausbildung: false }
   const [neu, setNeu] = useState(LEER_NEU)
+  const [sitzungen, setSitzungen] = useState<Sitzung[]>([])
   useEffect(() => { laden().catch((e) => setFehler((e as Error).message)) }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function laden() {
@@ -39,6 +40,7 @@ export default function Register() {
     const umgestellt = await registerNamenMigrieren(tresor.schluessel('zone_c'))
     if (umgestellt) { await protokolliere('register_namen_geteilt', `${umgestellt} Einträge`); zeigeMeldung(`${umgestellt} Namen in Vorname und Nachname aufgeteilt – bitte kurz prüfen.`) }
     const [reg, akten, sitzungen] = await Promise.all([ladeRegister(tresor.schluessel('zone_c')), ladeAkten(), ladeSitzungen()])
+    setSitzungen(sitzungen)
     const akteVon = new Map(akten.map((a) => [a.id, a]))
     const letzte = new Map<string, string>()
     for (const s of sitzungen) if (!letzte.has(s.akte_id) || letzte.get(s.akte_id)! < s.datum) letzte.set(s.akte_id, s.datum)
@@ -83,6 +85,13 @@ export default function Register() {
   async function anlegen(mitErstgespraech: boolean) {
     if (!neu.vorname.trim() && !neu.nachname.trim()) { setFehler('Bitte Vor- und Nachnamen eingeben.'); return }
     const f = pruefeDatum(neu.datum); if (f) { setFehler(f); return }
+    if (mitErstgespraech) {
+      // gleiche Prüfung wie in /protokolle: Gespräch am selben Tag (Erst- und Beratungsgespräche) bzw. verschobene Nummern
+      const h = einordnungsHinweis(einordnung(sitzungen, neu.datum), datum(neu.datum))
+      if (h && !confirm(`${h}
+
+OK = so anlegen · Abbrechen = anderes Datum wählen`)) return
+    }
     setFehler(''); setArbeitet(true)
     try {
       const akte = await neueAkte(tresor.schluessel('zone_c'), { vorname: neu.vorname.trim(), nachname: neu.nachname.trim(), name: vollerName(neu.vorname, neu.nachname), notiz: neu.notiz.trim() || undefined }, Number(neu.datum.slice(0, 4)))
@@ -156,6 +165,7 @@ export default function Register() {
                 <button className="btn btn-ghost px-3 py-1 text-sm" onClick={() => { setZuordnen(null); setBearbeiten(z) }}>{z.name ? 'Bearbeiten' : 'Name eintragen'}</button>
                 <button className="btn btn-ghost px-3 py-1 text-sm" onClick={() => { setStammDateien(false); setStamm(z); scrollTo({ top: 0, behavior: 'smooth' }) }}>Stammdaten</button>
                 <button className="btn btn-primary px-3 py-1 text-sm" onClick={() => { setStammDateien(true); setStamm(z) }}>📎 Dateien</button>
+                {z.akte?.status === 'offen' && <Link className="btn btn-cta px-3 py-1 text-sm no-underline" href={`/protokolle?folge=${z.akte_id}`}>{ohneGespraech ? '+ Erstgespräch' : '+ Beratungsgespräch'}</Link>}
                 {!ohneGespraech && <Link className="btn btn-ghost px-3 py-1 text-sm no-underline" href={`/protokolle?chiffre=${encodeURIComponent(z.chiffre)}`}>Protokolle</Link>}
                 <button className="btn btn-ghost px-3 py-1 text-sm" onClick={() => setAuskunft(z.akte_id)}>Auskunft</button>
                 {!ohneGespraech && <button className="btn btn-ghost px-3 py-1 text-sm" onClick={() => setTeilnahme(z)}>Bestätigung</button>}

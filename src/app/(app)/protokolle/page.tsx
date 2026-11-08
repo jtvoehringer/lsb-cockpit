@@ -21,6 +21,8 @@ export default function Protokolle() {
   // Sortierung per Klick auf die Spaltenköpfe; gedruckt wird in dieser Reihenfolge
   const [sortierung, setSortierung] = useState<{ spalte: Spalte; auf: boolean }>({ spalte: 'datum', auf: false })
   const [folgeAkte, setFolgeAkte] = useState('')
+  // Dialog „Beratungsgespräch“: Chiffre wählen (oder vorausgewählt aus Register/Liste/Protokoll) → Protokoll beginnen
+  const [folgeOffen, setFolgeOffen] = useState(false)
   const [neu, setNeu] = useState({ datum: heute(), ausbildung: false })
   // Erstgespräch: zuerst Klient:in anlegen (Name nur verschlüsselt im Register)
   const [klient, setKlient] = useState<{ vorname: string; nachname: string; notiz: string } | null>(null)
@@ -52,9 +54,15 @@ export default function Protokolle() {
     if (c) setFilter((f) => ({ ...f, chiffre: c }))
     // nach einem Erstgespräch: Chiffre für das nächste Beratungsgespräch schon ausgewählt
     const folge = q.get('folge')
-    if (folge) setFolgeAkte(folge)
+    if (folge) { setFolgeAkte(folge); setFolgeOffen(true) }
     Promise.all([ladeAkten(), ladeSitzungen()]).then(([a, s]) => { setAkten(a); setSitzungen(s) }).catch((e) => setFehler(e.message))
   }, [])
+
+  useEffect(() => {
+    if (!folgeAkte || !sitzungen) return
+    const letzte = sitzungen.filter((s) => s.akte_id === folgeAkte).sort((a, b) => b.datum.localeCompare(a.datum))[0]
+    if (letzte) setNeu((n) => ({ ...n, ausbildung: letzte.in_ausbildung }))
+  }, [folgeAkte, sitzungen])
 
   const chiffreVon = useMemo(() => new Map(akten.map((a) => [a.id, a.chiffre])), [akten])
   const ohneEinwilligung = useMemo(() => new Set(akten.filter((a) => a.status === 'offen' && !a.einwilligung_am).map((a) => a.id)), [akten])
@@ -110,12 +118,14 @@ OK = so anlegen · Abbrechen = anderes Datum wählen`)
   function erstgespraechStarten() {
     const f = pruefeDatum(neu.datum); if (f) { setFehler(f); return }
     if (!einordnungBestaetigt()) return
-    setFehler(''); setKlient({ vorname: '', nachname: '', notiz: '' })
+    setFehler(''); setFolgeOffen(false); setKlient({ vorname: '', nachname: '', notiz: '' })
   }
+
+  function beratungStarten() { setFehler(''); setKlient(null); setFolgeOffen(true) }
 
   /** Aus der Liste: Beratungsgespräch zu dieser Chiffre vorbereiten */
   function folgeVorbereiten(akteId: string) {
-    waehleFolgeAkte(akteId)
+    waehleFolgeAkte(akteId); setKlient(null); setFolgeOffen(true)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
@@ -164,16 +174,29 @@ OK = so anlegen · Abbrechen = anderes Datum wählen`)
         <p className="text-xs text-text-subtle">Die Chiffre bekommt immer das Jahr des Erstgesprächs – Datum 2024 ergibt K-24-…. Nachträge sind ab {PROTOKOLL_AB_JAHR} möglich. Die Protokoll-Nummern folgen dem Beratungsdatum (Nr. 1 = ältestes Gespräch).</p>
         <div className="flex flex-wrap items-end gap-2 border-t border-border pt-4">
           <button className="btn btn-cta" onClick={erstgespraechStarten} disabled={arbeitet}>+ Erstgespräch (neue Klient:in)</button>
-          <span className="px-2 pb-2.5 text-sm text-text-subtle">oder</span>
-          <label className="min-w-44">Beratungsgespräch zu
-            <select value={folgeAkte} onChange={(e) => waehleFolgeAkte(e.target.value)} className="mt-1 block w-full rounded-md border border-border-input bg-surface px-3 py-2.5 text-base">
-              <option value="">Chiffre wählen …</option>
-              {akten.filter((a) => a.status === 'offen').map((a) => <option key={a.id} value={a.id}>{a.chiffre}{(sitzungen ?? []).some((s) => s.akte_id === a.id) ? '' : ' (noch kein Gespräch → Erstgespräch)'}</option>)}
-            </select>
-          </label>
-          <button className="btn btn-primary" onClick={beratungsgespraech} disabled={arbeitet}>+ Beratungsgespräch</button>
+          <button className="btn btn-primary" onClick={beratungStarten} disabled={arbeitet}>+ Beratungsgespräch (bekannte Chiffre)</button>
         </div>
       </div>
+      {folgeOffen && (
+        <div className="karte space-y-4 border-2 border-sage" role="dialog" aria-label="Beratungsgespräch anlegen">
+          <h2 className="font-heading text-heading">Beratungsgespräch am {datum(neu.datum)}</h2>
+          <div className="flex flex-wrap items-end gap-3">
+            <label className="min-w-52">Chiffre
+              <select autoFocus value={folgeAkte} onChange={(e) => waehleFolgeAkte(e.target.value)} className="mt-1 block w-full rounded-md border border-border-input bg-surface px-3 py-2.5 text-base">
+                <option value="">Chiffre wählen …</option>
+                {akten.filter((a) => a.status === 'offen').map((a) => <option key={a.id} value={a.id}>{a.chiffre}{(sitzungen ?? []).some((s) => s.akte_id === a.id) ? '' : ' (noch kein Gespräch → Erstgespräch)'}</option>)}
+              </select>
+            </label>
+            <label>Datum des Gesprächs<input type="date" value={neu.datum} min={`${PROTOKOLL_AB_JAHR}-01-01`} max={`${new Date().getFullYear()}-12-31`} onChange={(e) => setNeu({ ...neu, datum: e.target.value })} /></label>
+            <label className="flex items-center gap-2 pb-2.5 text-sm font-normal text-text"><input type="checkbox" checked={neu.ausbildung} onChange={(e) => setNeu({ ...neu, ausbildung: e.target.checked })} /> in Ausbildung</label>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button className="btn btn-cta" onClick={() => void beratungsgespraech()} disabled={arbeitet || !folgeAkte}>Anlegen und Protokoll beginnen</button>
+            <button className="btn btn-ghost" onClick={() => setFolgeOffen(false)} disabled={arbeitet}>Abbrechen</button>
+          </div>
+          <p className="text-xs text-text-subtle">Tipp: In der Liste unten, im Register und in jedem Protokoll gibt es „+ Beratung“ – dann ist die Chiffre schon ausgewählt.</p>
+        </div>
+      )}
       {klient && (
         <div className="karte space-y-4 border-2 border-sage" role="dialog" aria-label="Neue Klientin / neuer Klient">
           <h2 className="font-heading text-heading">Neue Klientin / neuer Klient</h2>
@@ -188,25 +211,24 @@ OK = so anlegen · Abbrechen = anderes Datum wählen`)
             <button className="btn btn-ghost" onClick={() => void erstgespraech(false)} disabled={arbeitet}>Ohne Namen weiter</button>
             <button className="btn btn-ghost" onClick={() => setKlient(null)} disabled={arbeitet}>Abbrechen</button>
           </div>
-          <p className="text-xs text-text-subtle">Kommt die Person schon wieder? Dann statt dessen „Beratungsgespräch zu“ mit ihrer Chiffre wählen.</p>
+          <p className="text-xs text-text-subtle">Kommt die Person schon wieder? Dann statt dessen „+ Beratungsgespräch (bekannte Chiffre)“ wählen.</p>
         </div>
       )}
       {fehler && <p className="fehler" role="alert">{fehler}</p>}
       {ohneEinwilligung.size > 0 && <p className="hinweis text-sm">Bei {ohneEinwilligung.size} offenen Akte{ohneEinwilligung.size === 1 ? '' : 'n'} ist noch keine Einwilligung zur Verarbeitung der Gesundheitsdaten erfasst. Nachtragen im <Link href="/register">Register</Link> unter „Stammdaten“.</p>}
 
-      <div className="karte space-y-2 p-4">
+      <div className="karte space-y-3 p-4">
+        <h2 className="font-heading text-heading">Protokolle finden</h2>
         <label className="text-sm">Suche in Protokollen
           <input type="search" value={suche} onChange={(e) => setSuche(e.target.value)} placeholder="Stichwort, Chiffre, Datum oder Name – mehrere Wörter = alle müssen vorkommen" autoComplete="off" spellCheck={false} />
         </label>
         <p className="text-xs text-text-subtle">{suchLaden || (sb.length && inhalte
           ? `${zeilen.length} Treffer. Durchsucht werden Protokolltext, Chiffre, Datum und der Name im Register. „In Anführungszeichen“ sucht einen genauen Ausdruck.`
           : 'Die Suche läuft nur hier im Browser – die Protokolle werden dafür entschlüsselt, nichts geht an den Server.')}</p>
-      </div>
-
-      <div className="flex flex-wrap gap-3">
+      <div className="flex flex-wrap gap-3 border-t border-border pt-3">
         <label>Chiffre<input value={filter.chiffre} onChange={(e) => setFilter({ ...filter, chiffre: e.target.value })} placeholder="alle" /></label>
-        <label>von<input type="date" value={filter.von} onChange={(e) => setFilter({ ...filter, von: e.target.value })} /></label>
-        <label>bis<input type="date" value={filter.bis} onChange={(e) => setFilter({ ...filter, bis: e.target.value })} /></label>
+        <label>Liste ab Datum<input type="date" value={filter.von} onChange={(e) => setFilter({ ...filter, von: e.target.value })} /></label>
+        <label>Liste bis Datum<input type="date" value={filter.bis} onChange={(e) => setFilter({ ...filter, bis: e.target.value })} /></label>
         <label>Art<select value={filter.art} onChange={(e) => setFilter({ ...filter, art: e.target.value })} className="mt-1 block rounded-md border border-border-input bg-surface px-3 py-2.5 text-base">
           <option value="">alle</option><option value="erst">Erstgespräch</option><option value="folge">Beratungsgespräch</option>
         </select></label>
@@ -217,6 +239,7 @@ OK = so anlegen · Abbrechen = anderes Datum wählen`)
           <option value="">alle</option><option value="ja">in Ausbildung</option><option value="nein">ohne</option>
         </select></label>
         {(Object.values(filter).some(Boolean) || suche) && <button className="btn btn-ghost self-end" onClick={() => { setFilter({ chiffre: '', von: '', bis: '', art: '', status: '', ausbildung: '' }); setSuche('') }}>Filter zurücksetzen</button>}
+      </div>
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
