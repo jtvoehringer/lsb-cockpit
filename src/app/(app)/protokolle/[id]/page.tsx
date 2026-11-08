@@ -9,12 +9,12 @@ import { AUSDRUCK_LEER, ladeAusdruck, type ProtokollAusdruck } from '@/lib/einst
 import { protokolliere } from '@/lib/konto'
 import { zeigeMeldung } from '@/lib/meldung'
 import {
-  chiffreAnJahrAnpassen, entschluesseleVersion, entwurfLoeschen, ladeAkten, ladeInhalt, ladeRegister, ladeSitzung, speichereEntwurf, versionAnhaengen,
+  chiffreAnJahrAnpassen, entschluesseleVersion, entwurfLoeschen, ladeAkten, ladeInhalt, ladeRegister, ladeSitzung, ladeSitzungen, speichereEntwurf, versionAnhaengen,
   type Sitzung, type Version,
 } from '@/lib/protokolle/daten'
 import { pruefeText, TREFFER_TITEL, type Treffer } from '@/lib/protokolle/pseudonym'
 import { ladeStammdaten } from '@/lib/stammdaten'
-import { ART, AUSBILDUNG_VERMERK, chiffreJahr, einheiten, leererInhalt, minuten, pruefeDatum, PROTOKOLL_AB_JAHR, type Feld, type Inhalt } from '@/lib/protokolle/modell'
+import { ART, AUSBILDUNG_VERMERK, chiffreJahr, EINHEIT_MIN, einheiten, einordnung, einordnungsHinweis, type NrZeile, leererInhalt, minuten, pruefeDatum, PROTOKOLL_AB_JAHR, type Feld, type Inhalt } from '@/lib/protokolle/modell'
 import { useTresor } from '@/lib/tresor'
 
 type Kopf = Pick<Sitzung, 'datum' | 'beginn' | 'ende' | 'vorbereitung_min' | 'nachbereitung_min' | 'prozess_abgeschlossen' | 'in_ausbildung'>
@@ -38,11 +38,15 @@ export default function ProtokollBearbeiten() {
   const [pruefung, setPruefung] = useState<{ treffer: Treffer[]; bestaetigt: boolean } | null>(null)
   const [ausdruck, setAusdruck] = useState<ProtokollAusdruck>(AUSDRUCK_LEER)
   const geaendert = useRef(false)
+  // Stand beim Öffnen: für den Hinweis, wenn eine Datums-/Zeitänderung die Nummern verschiebt
+  const [start, setStart] = useState<{ alle: NrZeile[]; nr: number; datum: string; beginn: string | null } | null>(null)
+  const [kopiert, setKopiert] = useState(false)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const laden = useCallback(async () => {
     const sitzung = await ladeSitzung(id)
-    const [akten, r] = await Promise.all([ladeAkten(), ladeInhalt(tresor.schluessel('zone_b'), sitzung)])
+    const [akten, r, alle] = await Promise.all([ladeAkten(), ladeInhalt(tresor.schluessel('zone_b'), sitzung), ladeSitzungen()])
+    setStart({ alle, nr: sitzung.nr, datum: sitzung.datum, beginn: sitzung.beginn })
     setS(sitzung); setChiffre(akten.find((a) => a.id === sitzung.akte_id)?.chiffre ?? '')
     setKopf({ datum: sitzung.datum, beginn: sitzung.beginn, ende: sitzung.ende, vorbereitung_min: sitzung.vorbereitung_min, nachbereitung_min: sitzung.nachbereitung_min, prozess_abgeschlossen: sitzung.prozess_abgeschlossen, in_ausbildung: sitzung.in_ausbildung })
     setInhalt(r.inhalt); setVersionen(r.versionen); setKorrektur(false); geaendert.current = false
@@ -50,6 +54,13 @@ export default function ProtokollBearbeiten() {
 
   useEffect(() => { laden().catch((e) => setFehler(e.message)) }, [laden])
   useEffect(() => { ladeAusdruck().then(setAusdruck).catch(() => {}) }, [])
+
+  /** Nach dem Speichern: aktuelle Nummer holen (die Datenbank ordnet nach Beratungsdatum neu) */
+  const nrAktualisieren = useCallback(async (): Promise<number> => {
+    const neu = await ladeSitzung(id)
+    setS((alt) => (alt && alt.nr !== neu.nr ? { ...alt, nr: neu.nr } : alt))
+    return neu.nr
+  }, [id])
 
   const entwurf = s?.protokoll_status === 'entwurf'
   const bearbeitbar = entwurf || korrektur
@@ -65,9 +76,9 @@ export default function ProtokollBearbeiten() {
   const speichern = useCallback(async () => {
     if (!s || !kopf || !entwurf || !geaendert.current) return
     geaendert.current = false
-    try { await chiffreAbgleichen(kopf.datum); await speichereEntwurf(tresor.schluessel('zone_b'), s, kopf, inhalt); setSpeicherStand('gespeichert (verschlüsselt)') }
+    try { await chiffreAbgleichen(kopf.datum); await speichereEntwurf(tresor.schluessel('zone_b'), s, kopf, inhalt); await nrAktualisieren(); setSpeicherStand('gespeichert (verschlüsselt)') }
     catch (e) { setSpeicherStand(''); setFehler((e as Error).message) }
-  }, [s, kopf, inhalt, entwurf, tresor, chiffreAbgleichen])
+  }, [s, kopf, inhalt, entwurf, tresor, chiffreAbgleichen, nrAktualisieren])
 
   useEffect(() => {
     if (!geaendert.current || !entwurf) return
@@ -106,13 +117,20 @@ export default function ProtokollBearbeiten() {
         const t = await pruefen()
         if (t.length) { setPruefung({ treffer: t, bestaetigt: false }); return }
       }
+      const h = korrektur ? nummernHinweis() : null // Entwürfe speichern laufend – dort zeigt der Hinweis oben die Verschiebung
+      if (h && !confirm(`${h}
+
+OK = so speichern · Abbrechen = Datum/Zeit nochmals prüfen`)) return
       if (!korrektur && !confirm('Protokoll abschließen? Danach sind Änderungen nur noch als nachvollziehbare Korrektur möglich.')) return
       if (geprueft && pruefung) await protokolliere('pseudonym_bestaetigt', `Nr. ${s.nr}`, `${pruefung.treffer.length} Treffer`)
       await versionAnhaengen(tresor.schluessel('zone_b'), s, kopf, inhalt)
-      await protokolliere(korrektur ? 'protokoll_korrigiert' : 'protokoll_abgeschlossen', `Nr. ${s.nr}`)
+      const nr = await nrAktualisieren()
+      await protokolliere(korrektur ? 'protokoll_korrigiert' : 'protokoll_abgeschlossen', `Nr. ${nr}`)
       setPruefung(null)
-      zeigeMeldung(`Protokoll Nr. ${s.nr} (${chiffreRef.current}) ${korrektur ? 'korrigiert – neue Fassung gespeichert' : 'abgeschlossen und gespeichert'}.`)
-      router.push('/protokolle')
+      // Nach dem Erstgespräch: Chiffre für das nächste Beratungsgespräch gleich vorauswählen
+      const naechstes = !korrektur && s.art === 'erst'
+      zeigeMeldung(`Protokoll Nr. ${nr} (${chiffreRef.current}) ${korrektur ? 'korrigiert – neue Fassung gespeichert' : 'abgeschlossen und gespeichert'}.${naechstes ? ' Für das nächste Beratungsgespräch ist die Chiffre oben schon ausgewählt.' : ''}`)
+      router.push(naechstes ? `/protokolle?folge=${s.akte_id}` : '/protokolle')
     } catch (e) { setFehler((e as Error).message) }
   }
 
@@ -132,11 +150,28 @@ export default function ProtokollBearbeiten() {
     try {
       if (timer.current) clearTimeout(timer.current)
       await chiffreAbgleichen(kopf.datum)
+      const h = korrektur ? nummernHinweis() : null // Entwürfe speichern laufend – dort zeigt der Hinweis oben die Verschiebung
+      if (h && !confirm(`${h}
+
+OK = so speichern · Abbrechen = Datum/Zeit nochmals prüfen`)) return
       await speichereEntwurf(tresor.schluessel('zone_b'), s, kopf, inhalt)
       geaendert.current = false
-      zeigeMeldung(`Entwurf Nr. ${s.nr} (${chiffreRef.current}) gespeichert.`)
+      const nr = await nrAktualisieren()
+      zeigeMeldung(`Entwurf Nr. ${nr} (${chiffreRef.current}) gespeichert.`)
       router.push('/protokolle')
     } catch (e) { setFehler((e as Error).message) }
+  }
+
+  /** Hinweis, wenn Datum/Beginn seit dem Öffnen geändert wurden: anderer Tag mit Gesprächen, Nummern verschieben sich */
+  function nummernHinweis(): string | null {
+    if (!s || !kopf || !start || (kopf.datum === start.datum && (kopf.beginn ?? null) === (start.beginn ?? null))) return null
+    if (pruefeDatum(kopf.datum)) return null
+    const e = einordnung(start.alle, kopf.datum, kopf.beginn, { id: s.id, erstellt_am: s.erstellt_am })
+    return einordnungsHinweis(kopf.datum === start.datum ? { ...e, amTag: [] } : e, datum(kopf.datum), start.nr)
+  }
+
+  async function chiffreKopieren() {
+    try { await navigator.clipboard.writeText(chiffre); setKopiert(true); setTimeout(() => setKopiert(false), 2500) } catch { setFehler('Kopieren nicht möglich – Chiffre bitte abschreiben.') }
   }
 
   async function loeschen() {
@@ -166,6 +201,8 @@ export default function ProtokollBearbeiten() {
             <span className="text-sm text-text-subtle" aria-live="polite">{entwurf ? speicherStand : ''}</span>
             <button className="btn btn-ghost" onClick={() => { if (korrektur && geaendert.current && !confirm('Korrektur nicht gespeichert – verwerfen?')) return; void speichern().then(() => router.push('/protokolle')) }}>← Zurück zur Liste</button>
             <button className="btn btn-ghost" onClick={() => { void speichern().then(() => print()) }}>Drucken / PDF</button>
+            <button className="btn btn-ghost" onClick={() => void chiffreKopieren()} title="Chiffre in die Zwischenablage">{kopiert ? '✓ Chiffre kopiert' : 'Chiffre kopieren'}</button>
+            {!entwurf && <Link href={`/protokolle?folge=${s.akte_id}`} className="btn btn-primary no-underline">+ Beratungsgespräch zu {chiffre}</Link>}
           </div>
         </div>
 
@@ -176,6 +213,7 @@ export default function ProtokollBearbeiten() {
           </div>
         )}
         {fehler && <p className="fehler" role="alert">{fehler}</p>}
+        {bearbeitbar && nummernHinweis() && <p className="hinweis whitespace-pre-line text-sm" role="status">{nummernHinweis()}</p>}
 
         <div className="karte grid grid-cols-2 gap-4 sm:grid-cols-4">
           <Anzeige titel="Chiffre" wert={chiffre} />
@@ -184,7 +222,7 @@ export default function ProtokollBearbeiten() {
           <label>Ende<input type="time" value={kopf.ende ?? ''} disabled={!bearbeitbar} onChange={(e) => aendereKopf({ ende: e.target.value || null })} /></label>
           <label>Vorbereitung (Min.)<input type="number" min={0} step={5} value={kopf.vorbereitung_min} disabled={!bearbeitbar} onChange={(e) => aendereKopf({ vorbereitung_min: Number(e.target.value) || 0 })} /></label>
           <label>Nachbereitung (Min.)<input type="number" min={0} step={5} value={kopf.nachbereitung_min} disabled={!bearbeitbar} onChange={(e) => aendereKopf({ nachbereitung_min: Number(e.target.value) || 0 })} /></label>
-          <Anzeige titel="Dauer / Einheiten (50 Min.)" wert={m ? `${stunden(m)} h · ${zahl(einheiten(m))} E` : '–'} />
+          <Anzeige titel={`Dauer / Einheiten (${EINHEIT_MIN} Min.)`} wert={m ? `${stunden(m)} h · ${zahl(einheiten(m))} E` : '–'} />
         </div>
 
         {art.felder.map(([f, titel]) => (

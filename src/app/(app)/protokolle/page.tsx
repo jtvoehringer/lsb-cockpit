@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation'
 import { Fragment, useEffect, useMemo, useState } from 'react'
 import { datum, heute, stunden, zahl } from '@/lib/format'
 import { chiffreAnJahrAnpassen, ladeAkten, ladeAlleInhalte, ladeRegister, ladeSitzungen, neueAkte, neueSitzung, vollerName, type Akte, type Sitzung } from '@/lib/protokolle/daten'
-import { ART, minuten, pruefeDatum, PROTOKOLL_AB_JAHR, type Inhalt } from '@/lib/protokolle/modell'
+import { ART, einordnung, einordnungsHinweis, minuten, pruefeDatum, PROTOKOLL_AB_JAHR, type Inhalt } from '@/lib/protokolle/modell'
 import { ausschnitt, begriffe, trifft } from '@/lib/protokolle/suche'
 import { protokolliere } from '@/lib/konto'
 import { useTresor } from '@/lib/tresor'
@@ -47,8 +47,12 @@ export default function Protokolle() {
   }, [sb, inhalte, suchLaden, sitzungen, tresor])
 
   useEffect(() => {
-    const c = new URLSearchParams(location.search).get('chiffre')
+    const q = new URLSearchParams(location.search)
+    const c = q.get('chiffre')
     if (c) setFilter((f) => ({ ...f, chiffre: c }))
+    // nach einem Erstgespräch: Chiffre für das nächste Beratungsgespräch schon ausgewählt
+    const folge = q.get('folge')
+    if (folge) setFolgeAkte(folge)
     Promise.all([ladeAkten(), ladeSitzungen()]).then(([a, s]) => { setAkten(a); setSitzungen(s) }).catch((e) => setFehler(e.message))
   }, [])
 
@@ -94,10 +98,25 @@ export default function Protokolle() {
     if (letzte) setNeu((n) => ({ ...n, ausbildung: letzte.in_ausbildung }))
   }
 
+  /** Hinweis mit OK/Abbrechen: schon ein Gespräch an diesem Tag? Verschieben sich Nummern (Nummern folgen dem Beratungsdatum)? */
+  function einordnungBestaetigt(): boolean {
+    const h = einordnungsHinweis(einordnung(sitzungen ?? [], neu.datum), datum(neu.datum))
+    return !h || confirm(`${h}
+
+OK = so anlegen · Abbrechen = anderes Datum wählen`)
+  }
+
   /** Schritt 1: Dialog „Neue Klientin / neuer Klient“ öffnen */
   function erstgespraechStarten() {
     const f = pruefeDatum(neu.datum); if (f) { setFehler(f); return }
+    if (!einordnungBestaetigt()) return
     setFehler(''); setKlient({ vorname: '', nachname: '', notiz: '' })
+  }
+
+  /** Aus der Liste: Beratungsgespräch zu dieser Chiffre vorbereiten */
+  function folgeVorbereiten(akteId: string) {
+    waehleFolgeAkte(akteId)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   /** Schritt 2: Akte mit Registereintrag anlegen und Erstgespräch öffnen (ohne Namen möglich – später im Register nachtragen) */
@@ -119,6 +138,7 @@ export default function Protokolle() {
     const f = pruefeDatum(neu.datum); if (f) { setFehler(f); return }
     const erst = (sitzungen ?? []).filter((s) => s.akte_id === folgeAkte).map((s) => s.datum).sort()[0]
     if (erst && neu.datum < erst) { setFehler(`Das Datum liegt vor dem ersten Gespräch dieser Chiffre (${datum(erst)}).`); return }
+    if (!einordnungBestaetigt()) return
     setArbeitet(true); setFehler('')
     try {
       // Akte ohne Protokolle (z. B. im Register „Nur anlegen“): das erste Gespräch ist das Erstgespräch – die Chiffre folgt seinem Jahr
@@ -141,7 +161,7 @@ export default function Protokolle() {
           <label>Datum des Gesprächs<input type="date" value={neu.datum} min={`${PROTOKOLL_AB_JAHR}-01-01`} max={`${new Date().getFullYear()}-12-31`} onChange={(e) => setNeu({ ...neu, datum: e.target.value })} /></label>
           <label className="flex items-center gap-2 pb-2.5 text-sm font-normal text-text" title="Beratung vor der Gewerbeberechtigung, z. B. als Praxisnachweis für die Ausbildung – bekommt einen Vermerk im Ausdruck und in der Nachweisliste"><input type="checkbox" checked={neu.ausbildung} onChange={(e) => setNeu({ ...neu, ausbildung: e.target.checked })} /> in Ausbildung</label>
         </div>
-        <p className="text-xs text-text-subtle">Die Chiffre bekommt immer das Jahr des Erstgesprächs – Datum 2024 ergibt K-24-…. Nachträge sind ab {PROTOKOLL_AB_JAHR} möglich.</p>
+        <p className="text-xs text-text-subtle">Die Chiffre bekommt immer das Jahr des Erstgesprächs – Datum 2024 ergibt K-24-…. Nachträge sind ab {PROTOKOLL_AB_JAHR} möglich. Die Protokoll-Nummern folgen dem Beratungsdatum (Nr. 1 = ältestes Gespräch).</p>
         <div className="flex flex-wrap items-end gap-2 border-t border-border pt-4">
           <button className="btn btn-cta" onClick={erstgespraechStarten} disabled={arbeitet}>+ Erstgespräch (neue Klient:in)</button>
           <span className="px-2 pb-2.5 text-sm text-text-subtle">oder</span>
@@ -230,7 +250,7 @@ export default function Protokolle() {
                     onChange={(e) => { const n = new Set(auswahl); if (e.target.checked) n.add(s.id); else n.delete(s.id); setAuswahl(n) }} /></td>
                   <td className="px-4 py-3 tabular-nums"><Link href={`/protokolle/${s.id}`} className="no-underline">{s.nr}</Link></td>
                   <td className="px-4 tabular-nums"><Link href={`/protokolle/${s.id}`} className="no-underline">{datum(s.datum)}</Link></td>
-                  <td className="px-4 tabular-nums">{chiffreVon.get(s.akte_id)}{ohneEinwilligung.has(s.akte_id) && <span title="Einwilligung (Art. 9 DSGVO) noch nicht erfasst – im Register unter „Stammdaten“" className="ml-2 whitespace-nowrap rounded-full bg-sand px-2 py-0.5 text-xs">Einwilligung fehlt</span>}</td>
+                  <td className="px-4 tabular-nums"><span className="whitespace-nowrap">{chiffreVon.get(s.akte_id)}{akten.find((a) => a.id === s.akte_id)?.status === 'offen' && <button type="button" className="ml-1.5 rounded-full border border-border-input px-1.5 text-xs text-text-muted hover:bg-sand" title="Beratungsgespräch zu dieser Chiffre anlegen" aria-label={`Beratungsgespräch zu ${chiffreVon.get(s.akte_id)} anlegen`} onClick={() => folgeVorbereiten(s.akte_id)}>+ Beratung</button>}</span>{ohneEinwilligung.has(s.akte_id) && <span title="Einwilligung (Art. 9 DSGVO) noch nicht erfasst – im Register unter „Stammdaten“" className="ml-2 whitespace-nowrap rounded-full bg-sand px-2 py-0.5 text-xs">Einwilligung fehlt</span>}</td>
                   <td className="px-4">{ART[s.art].kurz}{s.in_ausbildung && <span title="Beratung in Ausbildung" className="ml-2 whitespace-nowrap rounded-full bg-sage/30 px-2 py-0.5 text-xs text-forest-deep">Ausbildung</span>}</td>
                   <td className="px-4 text-right tabular-nums">{m ? `${stunden(m)} h` : '–'}</td>
                   <td className="px-4 text-right tabular-nums">{m ? zahl(s.arbeitseinheiten ?? 0) : '–'}</td>

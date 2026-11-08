@@ -1,4 +1,5 @@
 'use client'
+import { EINHEIT_MIN } from '@/lib/protokolle/modell'
 import { useEffect, useState } from 'react'
 import { AUSDRUCK_LEER, ibanFormatiert, ibanGueltig, ladeAusdruck, ladeEinstellungen, ladeFristen, LEER, speichereAusdruck, speichereEinstellungen, speichereFristen, type PraxisEinstellungen, type ProtokollAusdruck } from '@/lib/einstellungen'
 import { FRISTEN_STANDARD, pruefeFristEinstellungen, type FristEinstellungen } from '@/lib/fristen'
@@ -51,7 +52,7 @@ export default function Einstellungen() {
       </div>
       <div className="karte grid gap-4 sm:grid-cols-2">
         <h2 className="font-heading text-heading sm:col-span-2">Honorar</h2>
-        <label>Honorarsatz je Einheit (50 Min.) in €<input inputMode="decimal" value={satz} onChange={(x) => setSatz(x.target.value)} placeholder="z. B. 90,00" /></label>
+        <label>Honorarsatz je Einheit ({EINHEIT_MIN} Min.) in €<input inputMode="decimal" value={satz} onChange={(x) => setSatz(x.target.value)} placeholder="z. B. 90,00" /></label>
         {feld('zahlungsziel_tage', 'Zahlungsziel (Tage)', { type: 'number', min: 0, max: 90 })}
         <label className="sm:col-span-2">Hinweis auf der Honorarnote<input value={e.hinweis} onChange={(x) => setE({ ...e, hinweis: x.target.value })} /></label>
         <p className="text-xs text-text-subtle sm:col-span-2">Beispiel: 1,8 Einheiten × {euro(betragAusText(satz) ?? 0)} = {euro(Math.round(1.8 * (betragAusText(satz) ?? 0) * 100) / 100)}. Der Kleinunternehmer-Hinweis ist voreingestellt – bitte mit der Steuerberatung bestätigen.</p>

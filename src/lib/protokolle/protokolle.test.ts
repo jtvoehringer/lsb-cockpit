@@ -2,10 +2,10 @@ import { describe, expect, it } from 'vitest'
 import { CHIFFRE_MUSTER, chiffreJahr, einheiten, minuten, nameTeilen, naechsteChiffre, pruefeDatum, vollerName } from './modell'
 
 describe('Zeiten und Einheiten', () => {
-  it('rechnet Dauer und Einheiten zu 50 Minuten', () => {
+  it('rechnet Dauer und Einheiten zu 60 Minuten', () => {
     expect(minuten('17:00', '18:30')).toBe(90)
-    expect(einheiten(90)).toBe(1.8)
-    expect(einheiten(50)).toBe(1)
+    expect(einheiten(90)).toBe(1.5)
+    expect(einheiten(60)).toBe(1)
     expect(minuten('23:30', '00:20')).toBe(50) // über Mitternacht
     expect(minuten('', '10:00')).toBe(0)
     expect(minuten('ab:cd', '10:00')).toBe(0)
@@ -57,5 +57,31 @@ describe('Vorname / Nachname', () => {
     expect(vollerName(' Anna ', 'Huber')).toBe('Anna Huber')
     expect(vollerName('', 'Huber')).toBe('Huber')
     expect(vollerName(undefined, undefined)).toBe('')
+  })
+})
+
+import { einordnung, einordnungsHinweis, type NrZeile } from './modell'
+describe('Nummern nach Beratungsdatum', () => {
+  const z = (nr: number, datum: string, beginn: string | null = '10:00'): NrZeile => ({ id: `s${nr}`, nr, datum, beginn, erstellt_am: '2026-11-01T00:00:00Z' })
+  const alle = [z(1, '2026-11-01'), z(2, '2026-11-03'), z(3, '2026-11-07')]
+  it('neues Protokoll am Ende bekommt die nächste Nummer, nichts verschiebt sich', () => {
+    const e = einordnung(alle, '2026-11-08')
+    expect(e.nr).toBe(4); expect(e.verschoben).toEqual([]); expect(einordnungsHinweis(e, '08.11.2026')).toBeNull()
+  })
+  it('Beispiel: 7.11. hat Nr. 3, neues vom 6.11. bekommt Nr. 3, das vom 7.11. wird Nr. 4', () => {
+    const e = einordnung(alle, '2026-11-06')
+    expect(e.nr).toBe(3); expect(e.verschoben).toEqual([{ alt: 3, neu: 4 }])
+    expect(einordnungsHinweis(e, '06.11.2026')).toContain('Nr. 3 rückt um eins nach hinten')
+  })
+  it('gleicher Tag: Hinweis, neues kommt nach den vorhandenen Gesprächen des Tages', () => {
+    const e = einordnung(alle, '2026-11-03')
+    expect(e.nr).toBe(3); expect(e.amTag.map((x) => x.nr)).toEqual([2])
+    expect(einordnungsHinweis(e, '03.11.2026')).toContain('bereits ein Protokoll (Nr. 2)')
+  })
+  it('Datum eines vorhandenen Protokolls ändern', () => {
+    const e = einordnung(alle, '2026-11-02', '10:00', alle[2])
+    expect(e.nr).toBe(2); expect(e.verschoben).toEqual([{ alt: 2, neu: 3 }])
+    expect(einordnungsHinweis(e, '02.11.2026', 3)).toContain('von Nr. 3 zu Nr. 2')
+    expect(einordnungsHinweis(einordnung(alle, '2026-11-06', '10:00', alle[2]), '06.11.2026', 3)).toBeNull()
   })
 })

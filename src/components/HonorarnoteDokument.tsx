@@ -1,3 +1,4 @@
+import { EINHEIT_MIN } from '@/lib/protokolle/modell'
 import type { PraxisEinstellungen } from '@/lib/einstellungen'
 import type { Honorarnote } from '@/lib/finanzen/honorarnoten'
 import { euro } from '@/lib/finanzen/modell'
@@ -34,7 +35,7 @@ export function HonorarnoteDokument({ n, e }: { n: Honorarnote; e: PraxisEinstel
         ))}</tbody>
         <tfoot><tr><td colSpan={4} className="pt-3 text-right font-semibold">Gesamtbetrag</td><td className="pt-3 text-right font-semibold tabular-nums">{euro(n.betrag)}</td></tr></tfoot>
       </table>
-      <p className="mt-2 text-xs text-text-muted">Eine Einheit entspricht 50 Minuten.</p>
+      <p className="mt-2 text-xs text-text-muted">Eine Einheit entspricht {EINHEIT_MIN} Minuten.</p>
 
       {n.inhalt.hinweis && <p className="mt-6 text-sm">{n.inhalt.hinweis}</p>}
       {n.status === 'bezahlt' && n.bezahlt_am

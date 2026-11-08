@@ -2,7 +2,7 @@ import brand from '@/config/brand.config'
 import type { ProtokollAusdruck } from '@/lib/einstellungen'
 import { datum, heute, stunden, zahl } from '@/lib/format'
 import type { Sitzung } from '@/lib/protokolle/daten'
-import { einheiten, minuten, type Inhalt } from '@/lib/protokolle/modell'
+import { EINHEIT_MIN, einheiten, minuten, type Inhalt } from '@/lib/protokolle/modell'
 
 export type ZusammenfassungZeile = { s: Sitzung; chiffre: string; inhalt: Inhalt }
 
@@ -25,7 +25,7 @@ export function ZusammenfassungDruck({ zeilen, ausdruck }: { zeilen: Zusammenfas
       {ausdruck.beraterin && (alleAusbildung
         ? <div className="mt-2 text-sm"><p><b>LSB in Ausbildung:</b> {ausdruck.beraterin}</p>{ausdruck.institut && <p>Ausbildungsinstitut: {ausdruck.institut}</p>}</div>
         : <p className="mt-2 text-sm"><b>Lebens- und Sozialberaterin:</b> {ausdruck.beraterin}</p>)}
-      <p className="mt-1 text-xs text-text-muted">{zeilen.length} Protokolle · Zeitraum {daten.length ? `${datum(daten[0])} – ${datum(daten[daten.length - 1])}` : '–'} · Zeiten in Stunden · Einheit = 50 Minuten · nur Chiffren, keine Namen</p>
+      <p className="mt-1 text-xs text-text-muted">{zeilen.length} Protokolle · Zeitraum {daten.length ? `${datum(daten[0])} – ${datum(daten[daten.length - 1])}` : '–'} · Zeiten in Stunden · Einheit = {EINHEIT_MIN} Minuten · nur Chiffren, keine Namen</p>
       <table className="druck-tabelle mt-3 w-full table-fixed text-xs">
         <colgroup>
           <col style={{ width: '4.5%' }} /><col style={{ width: '11%' }} /><col style={{ width: '14.5%' }} /><col style={{ width: '10%' }} />

@@ -2,7 +2,7 @@ import brand from '@/config/brand.config'
 import type { ProtokollAusdruck } from '@/lib/einstellungen'
 import { datum, stunden, zahl, zeitpunkt } from '@/lib/format'
 import type { Sitzung } from '@/lib/protokolle/daten'
-import { ART, AUSBILDUNG_VERMERK, einheiten, minuten, type Art, type Inhalt } from '@/lib/protokolle/modell'
+import { ART, AUSBILDUNG_VERMERK, EINHEIT_MIN, einheiten, minuten, type Art, type Inhalt } from '@/lib/protokolle/modell'
 
 type Kopf = Pick<Sitzung, 'datum' | 'beginn' | 'ende' | 'vorbereitung_min' | 'nachbereitung_min' | 'prozess_abgeschlossen' | 'in_ausbildung'>
 
@@ -25,7 +25,7 @@ export function ProtokollDruck({ art, nr, chiffre, kopf, inhalt, entwurf, abgesc
         : ausdruck.beraterin && <p className="mt-2 text-sm"><b>Lebens- und Sozialberaterin:</b> {ausdruck.beraterin}</p>}
       <table className="druck-tabelle mt-3 w-full text-xs">
         <tbody>
-          <tr><th>Protokoll-Nr.</th><th>Chiffre</th><th>Datum</th><th>Zeit (von–bis)</th><th>Dauer</th><th>Einheiten (50 Min.)</th></tr>
+          <tr><th>Protokoll-Nr.</th><th>Chiffre</th><th>Datum</th><th>Zeit (von–bis)</th><th>Dauer</th><th>Einheiten ({EINHEIT_MIN} Min.)</th></tr>
           <tr><td>{nr}</td><td>{chiffre}</td><td>{datum(kopf.datum)}</td><td>{kopf.beginn}–{kopf.ende}</td><td>{stunden(m)} h</td><td>{zahl(einheiten(m))}</td></tr>
           <tr><th>Vorbereitung</th><td>{stunden(kopf.vorbereitung_min)} h</td><th>Nachbereitung</th><td>{stunden(kopf.nachbereitung_min)} h</td><th>Prozess</th><td>{kopf.prozess_abgeschlossen ? 'abgeschlossen' : 'laufend'}</td></tr>
         </tbody>

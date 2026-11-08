@@ -1,6 +1,6 @@
 // Protokoll-Modell: Arten, Felder (WKO-Gliederung), Zeiten und Einheiten, Chiffre. Ohne Datenbank und Krypto – gut testbar.
 
-export const EINHEIT_MIN = 50
+export const EINHEIT_MIN = 60
 
 export type Art = 'erst' | 'folge'
 export type Feld = 'anliegen' | 'ziele' | 'rahmen' | 'verlauf' | 'ergebnis'
@@ -41,7 +41,7 @@ export function minuten(beginn?: string | null, ende?: string | null): number {
   return d
 }
 
-/** Arbeitseinheiten zu 50 Minuten, auf zwei Stellen gerundet */
+/** Arbeitseinheiten zu EINHEIT_MIN Minuten (seit 08.11.2026: 60, vorher 50), auf zwei Stellen gerundet */
 export const einheiten = (min: number) => Math.round((min / EINHEIT_MIN) * 100) / 100
 
 // ---------- Chiffre K-JJ-NNNN-XX (Lösungsdesign 5.4) ----------
@@ -102,3 +102,29 @@ export function nameTeilen(name: string): { vorname: string; nachname: string } 
 }
 
 export const leererInhalt = (): Inhalt => ({ felder: {}, supervision: false })
+
+// ── Nummern nach Beratungsdatum (seit 08.11.2026; die Datenbank nummeriert per Trigger `sitzung_nummern_nach_datum` lückenlos neu) ──
+export type NrZeile = { id: string; nr: number; datum: string; beginn: string | null; erstellt_am: string }
+const schluessel = (z: Pick<NrZeile, 'datum' | 'beginn' | 'erstellt_am' | 'id'>) => [z.datum, z.beginn ?? '~', z.erstellt_am, z.id] as const
+function vor(a: readonly string[], b: readonly string[]) { for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return a[i] < b[i]; return false }
+
+/** Wo landet ein (neues oder geändertes) Protokoll? Gleiche Reihenfolge wie in der Datenbank: Datum, Beginn (ohne Zeit zuletzt), Erfassung. */
+export function einordnung(alle: NrZeile[], datum: string, beginn: string | null = null, eigen?: Pick<NrZeile, 'id' | 'erstellt_am'>) {
+  const andere = alle.filter((z) => z.id !== eigen?.id).sort((a, b) => (vor(schluessel(a), schluessel(b)) ? -1 : 1))
+  const ich = schluessel({ datum, beginn, erstellt_am: eigen?.erstellt_am ?? '9999', id: eigen?.id ?? '~' })
+  const nr = andere.filter((z) => vor(schluessel(z), ich)).length + 1
+  const verschoben = andere.map((z, i) => ({ alt: z.nr, neu: i + 1 + (i + 1 >= nr ? 1 : 0) })).filter((x) => x.alt !== x.neu)
+  return { nr, verschoben, amTag: andere.filter((z) => z.datum === datum) }
+}
+
+/** Hinweistext vor dem Anlegen/Ändern (null = nichts zu melden) */
+export function einordnungsHinweis(e: ReturnType<typeof einordnung>, datumText: string, bisher?: number): string | null {
+  const teile: string[] = []
+  if (e.amTag.length) teile.push(`Am ${datumText} ${e.amTag.length === 1 ? 'gibt es bereits ein Protokoll' : `gibt es bereits ${e.amTag.length} Protokolle`} (Nr. ${e.amTag.map((z) => z.nr).sort((a, b) => a - b).join(', ')}).`)
+  const sinkt = e.verschoben.filter((x) => x.neu > x.alt).map((x) => x.alt), steigt = e.verschoben.filter((x) => x.neu < x.alt).map((x) => x.alt)
+  if (bisher === undefined ? sinkt.length : bisher !== e.nr) {
+    const bereich = (n: number[]) => n.length === 1 ? `Nr. ${n[0]} rückt` : `Nr. ${Math.min(...n)}–${Math.max(...n)} rücken`
+    teile.push(`Nummern folgen dem Beratungsdatum: ${bisher === undefined ? `das neue Protokoll bekommt Nr. ${e.nr}` : `dieses Protokoll wird von Nr. ${bisher} zu Nr. ${e.nr}`}${sinkt.length ? `; ${bereich(sinkt)} um eins nach hinten` : ''}${steigt.length ? `; ${bereich(steigt)} um eins nach vorne` : ''}.`)
+  }
+  return teile.length ? teile.join('\n\n') : null
+}

@@ -1,6 +1,7 @@
 'use client'
 // Druckvorlagen für Klientinnen und Klienten (R-05, R-16, F-11). Praxisangaben und Fristen aus den Einstellungen.
 // Texte rechtlich geprüft und freigegeben am 04.10.2026 (Doris Dvorak; ROK Akademie). Bei inhaltlichen Änderungen erneut prüfen lassen und VORLAGEN_STAND anpassen.
+import { EINHEIT_MIN } from '@/lib/protokolle/modell'
 import type { PraxisEinstellungen } from '@/lib/einstellungen'
 import { euro } from '@/lib/finanzen/modell'
 import { datum, zahl } from '@/lib/format'
@@ -81,7 +82,7 @@ export function Beratungsvereinbarung({ praxis, fristen }: Basis) {
       <section className="break-inside-avoid"><H>1. Gegenstand</H>
       <p>Lebens- und Sozialberatung: Beratung und Begleitung von Menschen in Problem- und Entscheidungssituationen. Die Beratung ist keine Psychotherapie und keine medizinische Behandlung und ersetzt diese nicht.</p></section>
       <section className="break-inside-avoid"><H>2. Termine und Honorar</H>
-      <p>Eine Beratungseinheit dauert 50 Minuten. Das Honorar beträgt {praxis.honorarsatz ? euro(praxis.honorarsatz) : '€ ____'} je Einheit{praxis.hinweis?.includes('Kleinunternehmer') ? ' (umsatzsteuerfrei, Kleinunternehmerregelung)' : ''} und ist bar oder binnen {praxis.zahlungsziel_tage || 14} Tagen nach Erhalt der Honorarnote zu bezahlen. Termine, die nicht spätestens 24 Stunden vorher abgesagt werden, können verrechnet werden.</p></section>
+      <p>Eine Beratungseinheit dauert {EINHEIT_MIN} Minuten. Das Honorar beträgt {praxis.honorarsatz ? euro(praxis.honorarsatz) : '€ ____'} je Einheit{praxis.hinweis?.includes('Kleinunternehmer') ? ' (umsatzsteuerfrei, Kleinunternehmerregelung)' : ''} und ist bar oder binnen {praxis.zahlungsziel_tage || 14} Tagen nach Erhalt der Honorarnote zu bezahlen. Termine, die nicht spätestens 24 Stunden vorher abgesagt werden, können verrechnet werden.</p></section>
       <section className="break-inside-avoid"><H>3. Verschwiegenheit</H>
       <p>Die Beraterin ist zur Verschwiegenheit über alles verpflichtet, was ihr in der Beratung anvertraut wird. Ausnahmen bestehen nur bei gesetzlichen Pflichten oder wenn das Leben oder die Gesundheit einer Person ernsthaft gefährdet ist.</p></section>
       <section className="break-inside-avoid"><H>4. Datenschutz</H>
@@ -129,7 +130,7 @@ export function Teilnahmebestaetigung({ praxis, daten }: { praxis: PraxisEinstel
   return (
     <article className="text-[10.5pt] leading-relaxed">
       <Briefkopf praxis={praxis} titel="Teilnahmebestätigung" />
-      <p>Hiermit bestätige ich, dass <b>{daten.name || '________________'}</b> an folgenden Einheiten der Lebens- und Sozialberatung (je 50 Minuten) teilgenommen hat:</p>
+      <p>Hiermit bestätige ich, dass <b>{daten.name || '________________'}</b> an folgenden Einheiten der Lebens- und Sozialberatung (je {EINHEIT_MIN} Minuten) teilgenommen hat:</p>
       <table className="druck-tabelle mt-3 w-full max-w-md">
         <thead><tr><th>Datum</th><th>Einheiten</th></tr></thead>
         <tbody>{daten.sitzungen.map((s, i) => <tr key={i}><td>{datum(s.datum)}</td><td>{zahl(s.einheiten)}</td></tr>)}</tbody>
